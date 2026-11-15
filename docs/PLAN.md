@@ -45,7 +45,11 @@ Goal: both halves run and talk to each other, and the dashboard shows real data.
 - ☐ **B5** Client.txt tailer; parse incoming trade whispers (item, price, stash tab, position)
 - ☐ **F6** Trade overlay: incoming request list, stash-cell highlight, quick-reply buttons
 - ☐ **B6** Package the Elixir release so it runs without the user installing Elixir
-- ☐ **F7** Installer bundling the Qt client and the backend; publish **v0.1** on GitHub Releases
+- ☐ **F7** Windows installer wizard (`Quicksilver-Setup.exe`) bundling the Qt client and the backend release
+  - Wizard pages: Welcome → License → "Not affiliated with Grinding Gear Games" notice (COMPLIANCE.md) → Install folder → Shortcuts (Start Menu, optional desktop) → Install → Finish with a "Launch Quicksilver" checkbox
+  - Registers an uninstaller in Windows "Apps & features"; uninstall removes everything except the user's settings, unless they choose to remove those too
+  - Tool decided in ADR-003 (Inno Setup and WiX both produce this wizard)
+- ☐ Publish **v0.1** on GitHub Releases with the installer attached
 - ☐ **Q3** QA: install on a clean machine or VM; end-to-end smoke test
 - ☐ Demo script and recording for show and tell
 
