@@ -15,7 +15,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done · ✗ dropped
 - ☑ Repository structure, README, CLAUDE.md
 - ☑ Subagent definitions (backend, frontend, integrations, QA, scribe)
 - ☑ Architecture, protocol draft, data sources, compliance docs
-- ☐ Resolve items in `OPEN_QUESTIONS.md` that block Week 2
+- ☑ Resolve items in `OPEN_QUESTIONS.md` that block Week 2
 - ☐ Collect 20+ sample item texts (Ctrl+C in game) into `shared/samples/`. These are test fixtures, not code.
 - ☐ Install toolchains: Elixir/Erlang, Qt 6 + CMake + MSVC, Git
 - ☐ Portfolio card placeholder updated, link submitted
