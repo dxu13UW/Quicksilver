@@ -1,6 +1,6 @@
 # Quicksilver
 
-*Named after the speed flask, and a nod to the Elixir backend.*
+*Named after the speed utility flask, and a nod to the Elixir backend.*
 
 A companion app for Path of Exile 1: a standalone **command center** window plus an **in-game overlay**, backed by a local **Elixir** service that talks to the official trade API, poe.ninja, and other data sources.
 
