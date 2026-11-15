@@ -1,0 +1,51 @@
+# Project log
+
+Newest entries at the bottom. Every agent session ends with an entry. This log is how the next session (human or agent) picks up.
+
+## Entry template
+```
+### YYYY-MM-DD: <short title>
+- Who: me / <agent name>
+- Goal:
+- Done:
+- Decisions: (link ADR if any)
+- Problems / surprises:
+- Handoffs: (to which agent, what)
+- Next step:
+```
+
+---
+
+### 2026-11-15: Week 1 scaffold
+- Who: me + Claude (chat)
+- Goal: set up structure and planning before any code, per the instructor's Week 1 guidance.
+- Done: repo layout, README, CLAUDE.md, PLAN, ARCHITECTURE, PROTOCOL v0, DATA_SOURCES, COMPLIANCE, ADR-001/002/003, five subagent definitions.
+- Decisions:
+  - Solo project.
+  - MVP priority: dashboard > price check > stash trade overlay > session summary.
+  - Qt 6 frontend (ADR-001); local WebSocket (ADR-002).
+  - Stash trade overlay will use Client.txt whispers, so no OAuth is needed for the MVP.
+- Problems / surprises: starting late in the week.
+- Handoffs: none yet.
+- Next step: answer OPEN_QUESTIONS blockers, collect item text samples, install toolchains.
+
+### 2026-11-15: Resolve Week 2 blockers (moved to Claude Code)
+- Who: me + Claude Code
+- Goal: pick up from the desktop chat session and clear the questions that block Week 2.
+- Done:
+  - Removed 22 Windows `Zone.Identifier` files.
+  - Resolved OPEN_QUESTIONS #2–5 and recorded them in ADR-001, ADR-002, ARCHITECTURE and DATA_SOURCES.
+- Decisions:
+  - Client.txt: support both Steam and standalone, auto-detect the path, override in settings.
+  - Backend: a single Mix app with Bandit + WebSock, no Phoenix and no umbrella; chosen for the least overhead (ADR-002).
+  - UI: Qt Widgets (ADR-001).
+  - Repo: public on GitHub.
+- Problems / surprises:
+  - Root `PLAN.md` was an exact duplicate of `docs/PLAN.md`. Deleted it and pointed the qa/scribe agents at `docs/PLAN.md`.
+  - The folder wasn't a git repo. Ran `git init` (branch `main`), added `.gitignore`, made the first commit.
+- Handoffs: none.
+- Next step:
+  - Pick the final project name (#1).
+  - Collect 20+ item text samples into `shared/samples/`.
+  - Install Qt 6 + MSVC on Windows (WSL already has Elixir 1.18.3 / OTP 27).
+  - Create the public GitHub repo and push (install the `gh` CLI or use the web UI).
