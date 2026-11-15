@@ -40,6 +40,7 @@ Newest entries at the bottom. Every agent session ends with an entry. This log i
   - Backend: a single Mix app with Bandit + WebSock, no Phoenix and no umbrella; chosen for the least overhead (ADR-002).
   - UI: Qt Widgets (ADR-001).
   - Repo: public on GitHub.
+  - Published the repo at https://github.com/dxu13UW/Quicksilver (HTTPS remote; SSH key belongs to a different account).
   - Plan: F7 is now a full Windows setup wizard (pages listed in docs/PLAN.md); publishing v0.1 is its own item. Noted in ADR-003.
   - Name: **Quicksilver** (OPEN_QUESTIONS #1). Code names: `:quicksilver` / `Quicksilver` / `Quicksilver.exe`.
 - Problems / surprises:
@@ -49,4 +50,3 @@ Newest entries at the bottom. Every agent session ends with an entry. This log i
 - Next step:
   - Collect 20+ item text samples into `shared/samples/`.
   - Install Qt 6 + MSVC on Windows (WSL already has Elixir 1.18.3 / OTP 27).
-  - Create the public GitHub repo and push (install the `gh` CLI or use the web UI).
