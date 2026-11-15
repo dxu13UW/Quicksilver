@@ -1,7 +1,7 @@
 # Open questions
 
 ## Blocking Week 2
-1. **Final project name?** "PoE Command Center" is a placeholder. Avoid "PoE Overlay."
+1. ~~**Final project name?**~~ **Resolved 2026-11-15:** **Quicksilver**, after the speed flask and as a nod to Elixir.
 2. ~~**Steam or standalone PoE client?**~~ **Resolved 2026-11-15:** support both. Auto-detect the default paths, with an override in settings.
 3. ~~**Backend style?**~~ **Resolved 2026-11-15:** a single Mix app with Bandit + WebSock, no Phoenix (ADR-002).
 4. ~~**Qt Widgets or QML?**~~ **Resolved 2026-11-15:** Qt Widgets (ADR-001).

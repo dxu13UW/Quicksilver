@@ -5,7 +5,7 @@
 Update this line when the phase changes (see `docs/PLAN.md`).
 
 ## What this project is
-A Path of Exile 1 companion app with three parts:
+**Quicksilver**: a Path of Exile 1 companion app with three parts:
 - **Elixir backend** (`backend/`): a local service on `127.0.0.1`. It does all data fetching, caching, rate limiting, item parsing, pricing, and log-file watching.
 - **C++ / Qt 6 frontend** (`frontend/`): two windows from one process.
   - The **command center** is a normal window.
@@ -33,6 +33,7 @@ A Path of Exile 1 companion app with three parts:
    - If a change needs another lane, write a handoff note in `LOG.md` instead of editing their files.
 
 ## Tech decisions (see `docs/decisions/`)
+- **Names in code:** Elixir app `:quicksilver`, root module `Quicksilver`; Qt executable `Quicksilver.exe`.
 - **Backend:** Elixir/OTP; local WebSocket server (ADR-002).
 - **Frontend:** Qt 6, CMake, Windows 10/11 x64 (ADR-001).
 - **Item input:** clipboard item text (Ctrl+C in game), parsed by the backend.
