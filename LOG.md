@@ -60,8 +60,30 @@ Newest entries at the bottom. Every agent session ends with an entry. This log i
   - Verified the APIs live. poe.ninja's old `/api/data/*` endpoints return 404; the new ones are `/poe1/api/...`. Trade search limits come from `x-rate-limit-ip` headers.
 - Decisions: lightweight REQUIREMENTS.md instead of an IEEE-style SRS.
 - Problems / surprises: DATA_SOURCES.md still lists the old poe.ninja endpoints.
-- Handoffs: integrations, to record the verified endpoints and rate-limit headers in DATA_SOURCES.md.
+- Handoffs: integrations, to record the verified endpoints and rate-limit headers in DATA_SOURCES.md. **Done 2026-11-15** (see "DATA_SOURCES endpoint verification" below).
 - Next step:
   - Review the *(target)* numbers in REQUIREMENTS.md.
   - Collect item samples.
   - Install Qt and MSVC.
+
+### 2026-11-15: DATA_SOURCES endpoint verification
+- Who: integrations agent
+- Goal: record the live-verified endpoints, rate-limit headers and cache TTLs in `docs/DATA_SOURCES.md` (handoff from "Requirements doc draft").
+- Done:
+  - Re-checked every endpoint with about 30 light requests (generic User-Agent, one trade search, one fetch, no 429s).
+  - Rewrote the source table. Added "Rules for every client" (User-Agent, how to read rate-limit headers, 429/`Retry-After`), per-source "Endpoints (verified 2026-11-15)", a caching table with an explicit TTL for every cache, and a behaviour-changes log.
+- Decisions:
+  - poe.ninja TTL = `Cache-Control` max-age, with a 30 min fallback when the header is missing or `no-cache`.
+  - Trade league list is the primary source; legacy `/leagues` is the fallback.
+  - All URLs live in one module.
+- Problems / surprises:
+  - poe.ninja: divination cards and fragments moved from the item overview to the exchange endpoint.
+  - poe.ninja: an unknown exchange type returns 200 with empty data, and so did `Scarab`.
+  - poe.ninja: `Essence` is sent with `no-cache`.
+  - Trade fetch has its own rate-limit policy (`trade-fetch-request-limit`).
+  - The documented `GET /league` needs OAuth (401).
+  - GGG docs say only endpoints in their API reference are supported, and that reverse-engineering others breaks the ToU (section 7i). The trade endpoints are not in the reference.
+- Handoffs:
+  - Owner: decide whether the trade-API ToU risk is acceptable. If so, record it in COMPLIANCE.md (not my lane).
+  - Owner: choose the User-Agent contact value.
+- Next step: Week 2. Build the URL module and clients, and record fixtures from these endpoints for tests.
