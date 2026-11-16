@@ -20,7 +20,8 @@
 
 ### User-Agent
 - GGG's developer docs (verified) say any application using their API must send an identifiable User-Agent with this prefix: `OAuth {clientId}/{version} (contact: {contact}) ...`.
-- Until we have an OAuth client id, use `Quicksilver/{version} (contact: {contact})`. Once one is registered, switch to the `OAuth ...` form. The contact value goes in config; the owner still has to choose it.
+- Until we have an OAuth client id, use `Quicksilver/{version} (contact: https://github.com/dxu13UW/Quicksilver)`. Once one is registered, switch to the `OAuth ...` form.
+- The contact is the repo URL (decided 2026-11-15), so no personal email appears in requests.
 - Send the same User-Agent to poe.ninja and every other host.
 
 ### Reading GGG rate-limit headers
