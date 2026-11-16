@@ -18,7 +18,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done · ✗ dropped
 - ☑ Resolve items in `OPEN_QUESTIONS.md` that block Week 2
 - ☐ Collect 20+ sample item texts (Ctrl+C in game) into `shared/samples/`. These are test fixtures, not code.
 - ☐ Install toolchains: Elixir/Erlang, Qt 6 + CMake + MSVC, Git
-- ☐ Portfolio card placeholder updated, link submitted
+- ◐ Portfolio card placeholder updated, link submitted (card updated 2026-11-15; submit link)
 
 ## Week 2 (Nov 16–22): Walking skeleton + command center shell
 Goal: both halves run and talk to each other, and the dashboard shows real data.
