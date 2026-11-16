@@ -37,6 +37,7 @@ Update this line when the phase changes (see `docs/PLAN.md`).
 - **Backend:** Elixir/OTP; local WebSocket server (ADR-002).
 - **Frontend:** Qt 6, CMake, Windows 10/11 x64 (ADR-001).
 - **Item input:** clipboard item text (Ctrl+C in game), parsed by the backend.
+- **Pricing:** poe.ninja first; the trade API only for rares and unmatched items, on demand, behind a kill switch (ADR-004).
 - **Trade and session events:** the backend tails the game's `Client.txt` log file.
 - **Distribution:** Windows installer on GitHub Releases (ADR-003, not final).
 

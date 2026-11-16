@@ -87,3 +87,19 @@ Newest entries at the bottom. Every agent session ends with an entry. This log i
   - Owner: decide whether the trade-API ToU risk is acceptable. If so, record it in COMPLIANCE.md (not my lane).
   - Owner: choose the User-Agent contact value.
 - Next step: Week 2. Build the URL module and clients, and record fixtures from these endpoints for tests.
+
+### 2026-11-15: Pricing source split (ADR-004)
+- Who: me + Claude Code
+- Goal: decide how to handle the trade-API ToU risk the integrations agent flagged.
+- Done:
+  - Checked GGG's developer docs directly. Confirmed the "only our API Reference is supported / ToU 7i" wording. Also found the official overlay and macro rules, the exact third-party notice, the invalid-request (4xx) threshold, and that GGG isn't accepting new app registrations.
+  - Wrote ADR-004 and rewrote COMPLIANCE.md with quotes from GGG's docs and the accepted risk.
+  - Updated REQUIREMENTS (PC-3, PC-4 now Must, new PC-8 kill switch, PC-9, NFR-API-4), OPEN_QUESTIONS #7, PLAN B4, CLAUDE.md, and the DATA_SOURCES compliance note.
+  - Added notices to the README.
+- Decisions: use both sources. poe.ninja first; the trade API only for rares and unmatched items, only on demand, behind the `trade_api_enabled` kill switch with an "Open on trade site" fallback (ADR-004).
+- Problems / surprises: the integrations handoff ("owner: decide on the trade-API ToU risk") is now done. The User-Agent contact value is still open.
+- Handoffs: none.
+- Next step:
+  - Choose the User-Agent contact.
+  - Collect item samples.
+  - Install Qt and MSVC.

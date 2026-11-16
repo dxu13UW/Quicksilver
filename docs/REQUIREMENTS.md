@@ -57,8 +57,10 @@ Numbers marked *(target)* are first guesses. Confirm or adjust them once somethi
 |---|---|---|---|---|
 | PC-1 | M | A global hotkey sends exactly **one** Ctrl+C to the game, then reads the clipboard. The key must not clash with the game's default bindings. It is set in a config file (a settings screen is stretch). | QA confirms one keypress produces one Ctrl+C (COMPLIANCE.md). The hotkey works while the game has focus. | F4 |
 | PC-2 | M | The parser extracts item class, rarity, name, base type, item level, sockets/links, corruption, influences, and implicit, explicit, crafted and fractured mods. | 100% of the fixtures in `shared/samples/` parse to the expected result. Unsupported item kinds return "unsupported" and never crash. | B3 |
-| PC-3 | M | Currency, fragments, divination cards, uniques and gems are priced from poe.ninja. | For each of those kinds, the estimate matches the poe.ninja value for that league. | B4 |
-| PC-4 | S | Rares are priced with an official trade API search built from their parsed mods. *(Scope set by OPEN_QUESTIONS #7.)* | A rare sample returns low/median/high and a listing count, or "no matches". | B4, I3 |
+| PC-3 | M | Items poe.ninja covers are priced from poe.ninja, following the routing table in ADR-004: currency, fragments, divination cards, essences, fossils, oils, uniques, gems, maps, cluster jewels and bases. No trade API request is made for these. | For each of those kinds, the estimate matches the poe.ninja value for that league, and the logs show no trade API request. | B4 |
+| PC-4 | M | Rares, magic items, and items poe.ninja has no match for are priced with one trade API search plus one fetch, built from their parsed mods (ADR-004). | A rare sample returns low/median/high and a listing count, or "no matches". Each price check makes at most 1 search and 1 fetch. | B4, I3 |
+| PC-8 | M | Trade API kill switch: a config setting `trade_api_enabled`. When it is off, or while the trade API is unreachable or locked out, rares show an "Open on trade site" link instead of an in-app price. Everything else keeps working. | With the switch off, a rare shows the link and the logs show zero trade API requests. | B4, F5 |
+| PC-9 | S | When poe.ninja's estimate has very few listings, show it as low confidence, with a "check live listings" button that runs a trade search only when clicked. | A low-listing unique shows the button, and no trade request happens until it is clicked. | B4, F5 |
 | PC-5 | M | The overlay result panel shows: item name, estimate (chaos and divine), source, confidence and listing count. Clicking outside it or pressing Esc closes it. | The panel appears near the cursor and does not cover the hovered item. Esc closes it. | F5 |
 | PC-6 | M | When a trade search is waiting on a rate limit, the overlay shows a "queued / cooling down" state instead of an error. | Press the hotkey 10 times in 5 s on rares: requests queue, `price.pending` is shown, and no request fails. | B4, F5 |
 | PC-7 | M | Text that isn't a PoE item (random clipboard contents) gets a short "not an item" message. | Copy ordinary text and press the hotkey: the overlay says so, and nothing crashes. | B3, F5 |
@@ -112,6 +114,7 @@ Numbers marked *(target)* are first guesses. Confirm or adjust them once somethi
 |---|---|---|---|
 | NFR-API-1 | M | Never break a rate-limit rule. Limits are read from response headers, never hardcoded (DATA_SOURCES.md). | No HTTP 429 during the PC-6 hammer test or the 4-hour soak. |
 | NFR-API-2 | M | Every external request goes through the backend's clients, with the project User-Agent and contact info. | QA review: no HTTP calls outside the integrations modules. The frontend makes no external calls. |
+| NFR-API-4 | M | Trade API requests happen only in response to a user's keypress or click. No background polling, no prefetching, and no automatic retries after errors (ADR-004, COMPLIANCE.md). | QA review, plus logs from a 30-minute idle run show zero trade requests. |
 | NFR-API-3 | M | Each data source's cache follows its documented refresh time. For poe.ninja, honor its `Cache-Control` header. | Logs show no refetch before the cache expires. |
 
 ### Compliance and security
@@ -140,6 +143,6 @@ Numbers marked *(target)* are first guesses. Confirm or adjust them once somethi
 
 ## 4. Open items
 - Confirm the *(target)* numbers once B1/F1 run (Week 2).
-- PC-4's scope depends on OPEN_QUESTIONS #7 (rares in v0.1 or not).
+- PC-9's "very few listings" threshold gets tuned in Week 3.
 - The hotkey choice for PC-1 depends on OPEN_QUESTIONS #6.
 - TR-4: decide which screen resolutions and UI scale settings the demo must support.

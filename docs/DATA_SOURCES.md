@@ -46,7 +46,8 @@ Client behaviour:
 - The trade `data/*` endpoints returned **no** rate-limit headers (verified), only `cache-control: public, max-age=…`. Still send them through the same client, with one request in flight.
 
 ### Compliance note (owner decision needed)
-GGG's developer docs (verified) say: "We can only support resources defined in our API Reference," and that reverse-engineering endpoints outside that documentation is against the Terms of Use (section 7i). The trade endpoints, the trade data endpoints and the legacy `/leagues` are **not** in that reference. Community tools use them widely, but this is a risk for the project. Handoff logged in LOG.md.
+GGG's developer docs (verified) say: "We can only support resources defined in our API Reference," and that reverse-engineering endpoints outside that documentation is against the Terms of Use (section 7i). The trade endpoints, the trade data endpoints and the legacy `/leagues` are **not** in that reference. Community tools use them widely, but this is a risk for the project.
+**Decided 2026-11-15 (ADR-004):** the risk is accepted. The trade API is used only for items poe.ninja can't price, only on demand, and behind the `trade_api_enabled` kill switch. Recorded in COMPLIANCE.md.
 
 ## Endpoints (verified 2026-11-15)
 

@@ -29,3 +29,7 @@ Built solo for Artifact 5 (The Moonshot), with Claude Code subagents acting as t
 | `backend/` | Elixir service (empty until Week 2) |
 | `frontend/` | C++ / Qt 6 client (empty until Week 2) |
 | `shared/` | Protocol schemas and sample item texts used by both sides |
+
+## Notices
+- This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
+- Quicksilver reads the game's `Client.txt` log file to detect trade whispers and zone changes. It reads the clipboard only when you press the price-check hotkey. It never reads game memory or modifies game files.

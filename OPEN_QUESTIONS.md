@@ -9,7 +9,7 @@
 
 ## Decide by Week 3
 6. **Hotkeys:** which key for price check? (Must not collide with game binds.)
-7. **Price check scope for v0.1:** currency, uniques, and gems via poe.ninja only, or also rares via the trade API?
+7. ~~**Price check scope for v0.1?**~~ **Resolved 2026-11-15:** both. poe.ninja for everything it covers, and the trade API for rares, on demand and behind a kill switch (ADR-004).
 
 ## Decide by Week 4
 8. **Installer tool** (ADR-003)

@@ -36,7 +36,7 @@ Goal: both halves run and talk to each other, and the dashboard shows real data.
 - ☐ **F3** Overlay window: transparent, always-on-top, click-through except on its own panel
 - ☐ **F4** Global hotkey that copies the hovered item and sends the text to the backend
 - ☐ **B3** Item text parser (rarity, base, mods, links, sockets, corruption) tested against `shared/samples/`
-- ☐ **B4** Pricing: poe.ninja lookup for currency, uniques, and gems; trade API search for rares
+- ☐ **B4** Pricing per ADR-004: poe.ninja for everything it covers; trade API (on demand) for rares; `trade_api_enabled` kill switch with an "Open on trade site" fallback
 - ☐ **I3** Trade API client that obeys rate-limit headers dynamically
 - ☐ **F5** Price result panel in overlay; history list in command center
 - ☐ **Q2** QA: parser fixtures, rate-limit behaviour, compliance review of hotkey flow
