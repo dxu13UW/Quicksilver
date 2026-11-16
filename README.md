@@ -17,6 +17,7 @@ Built solo for Artifact 5 (The Moonshot), with Claude Code subagents acting as t
 |---|---|
 | `CLAUDE.md` | What every agent must know before touching anything |
 | `docs/PLAN.md` | Milestones and work items, week by week |
+| `docs/REQUIREMENTS.md` | What "done" means: numbered requirements with acceptance checks |
 | `docs/ARCHITECTURE.md` | How the pieces fit together |
 | `docs/PROTOCOL.md` | The contract between the C++ client and the Elixir service |
 | `docs/DATA_SOURCES.md` | External APIs, rate limits, and caching rules |

@@ -50,3 +50,18 @@ Newest entries at the bottom. Every agent session ends with an entry. This log i
 - Next step:
   - Collect 20+ item text samples into `shared/samples/`.
   - Install Qt 6 + MSVC on Windows (WSL already has Elixir 1.18.3 / OTP 27).
+
+### 2026-11-15: Requirements doc draft
+- Who: me + Claude Code
+- Goal: define testable "done" criteria. Decided against a full SRS because the existing docs already cover most of it.
+- Done:
+  - Drafted `docs/REQUIREMENTS.md` v0.1: functional requirements (CON, DASH, PC, TR, SES, INS) with priorities, PLAN IDs and acceptance checks, plus non-functional requirements (performance, reliability, API, compliance/security, UX, maintainability).
+  - Linked it from the README. The qa agent now checks requirement IDs, and test cases must name the requirement they verify.
+  - Verified the APIs live. poe.ninja's old `/api/data/*` endpoints return 404; the new ones are `/poe1/api/...`. Trade search limits come from `x-rate-limit-ip` headers.
+- Decisions: lightweight REQUIREMENTS.md instead of an IEEE-style SRS.
+- Problems / surprises: DATA_SOURCES.md still lists the old poe.ninja endpoints.
+- Handoffs: integrations, to record the verified endpoints and rate-limit headers in DATA_SOURCES.md.
+- Next step:
+  - Review the *(target)* numbers in REQUIREMENTS.md.
+  - Collect item samples.
+  - Install Qt and MSVC.
