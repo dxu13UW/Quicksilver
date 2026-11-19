@@ -1,7 +1,7 @@
 # CLAUDE.md: Project memory for all agents
 
 ## Current phase
-**Week 1: Scaffolding only. Do not write application code.** Planning, docs, and agent setup only.
+**Week 2 (Nov 16–22): Walking skeleton + command center shell.** Application code starts. Build only the Week 2 items in `docs/PLAN.md` (B1, B2, I1, I2, F1, F2, Q1), against PROTOCOL v1.
 Update this line when the phase changes (see `docs/PLAN.md`).
 
 ## What this project is

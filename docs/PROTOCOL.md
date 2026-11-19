@@ -1,52 +1,176 @@
-# Protocol (draft v0)
+# Protocol (v1)
 
 The only interface between the C++ client and the Elixir backend.
-- **Transport:** WebSocket at `ws://127.0.0.1:<port>/ws`. Port is chosen by the backend and passed to the client at launch. Text frames carry JSON.
+- **Transport:** WebSocket at `ws://127.0.0.1:<port>/ws`. Text frames carry one JSON object each.
+- **`protocol_version`:** `1`. It's an integer.
 - **Change rule:** edit this file first, bump `protocol_version`, then update both sides. QA checks both against this file.
+- **Status:** the Connection and Dashboard sections are **final for v1** (Week 2). Price check, Trade overlay and Session are still drafts; they get exact payloads in the week they're built.
+
+## Launch and lifetime
+**Production (the client starts the backend)**
+1. The client creates a random token (32 hex chars). It starts the backend with these environment variables:
+   - `QUICKSILVER_PORT=0`, so the OS picks a free port.
+   - `QUICKSILVER_TOKEN=<token>`.
+2. The backend binds `127.0.0.1` only. When it's ready, it writes **exactly one line** to stdout:
+   `QUICKSILVER_READY {"port":53123,"protocol_version":1}`
+   The client reads stdout until it sees that line, waiting at most **20 s**. If it times out, it shows "backend failed to start".
+3. **Cleanup:**
+   - The client puts the backend process in a Windows **Job Object** with *kill-on-job-close*. That way the OS ends the backend even if the client crashes (REQUIREMENTS CON-1).
+   - The backend also exits when its stdin closes, as a best-effort second guard.
+   - On a normal exit, the client closes the backend's stdin and waits up to 3 s before ending the job.
+
+**Development (backend run by hand with `mix run --no-halt`)**
+- Port: `QUICKSILVER_PORT` if set; otherwise **47474**.
+- Token: if `QUICKSILVER_TOKEN` isn't set, the token check is off and a warning is logged. The production client always sets it.
+- The backend still prints the `QUICKSILVER_READY` line.
 
 ## Envelope
 Every message has the same outer shape:
-- `type`: message name, e.g. `price.request`
-- `id`: request id chosen by the sender. Replies echo it; server pushes have `null`.
-- `ts`: ISO-8601 timestamp
-- `payload`: object, specific to the type
+```json
+{"type": "rates.update", "id": "c-12", "ts": "2026-11-19T21:04:05.123Z", "payload": {}}
+```
+- `type`: message name.
+- `id`: string or `null`.
+  - **Requests:** the sender picks the id. The client uses `"c-<n>"`.
+  - **Replies:** echo the request's id.
+  - **Server pushes:** `null`.
+- `ts`: UTC, ISO-8601 with milliseconds and a `Z` suffix.
+- `payload`: an object, always present (it may be empty: `{}`).
 
-## Messages (initial set)
+Rules:
+- A receiver ignores fields it doesn't recognise. This lets new fields be added without breaking anything.
+- For an unknown `type`, the server replies with error `unknown_type` and **keeps the connection open**.
 
-### Connection
-| Type | Direction | Purpose |
-|---|---|---|
-| `hello` | client → server | Client version, protocol_version |
-| `welcome` | server → client | Server version, league, feature flags |
-| `health` | server → client (push, every N s) | Status of each external source, cache ages, rate-limit state |
-| `error` | either | Code, human message, related `id` |
+## Connection
 
-### Dashboard
-| Type | Direction | Purpose |
-|---|---|---|
-| `leagues.list` / `leagues.result` | c→s / s→c | Available leagues |
-| `league.set` | c→s | Change active league |
-| `rates.subscribe` | c→s | Start receiving currency rates |
-| `rates.update` | s→c (push) | Currency rate table snapshot |
+### Handshake
+- The client's first message must be `hello`, sent within **5 s** of connecting.
+- Otherwise, or if the first message is anything else, the server sends error `unauthorized` and closes the connection.
 
-### Price check
+**`hello`** (c→s)
+```json
+{"client_version": "0.1.0", "protocol_version": 1, "token": "9f2c…"}
+```
+**`welcome`** (s→c, echoes the hello's id)
+```json
+{"server_version": "0.1.0", "protocol_version": 1, "league": "Covens",
+ "features": {"trade_api_enabled": true}, "health_interval_s": 5}
+```
+- `league` is the saved league, or `null` if none has been chosen yet.
+- **Wrong token** → error `unauthorized`, then the server closes the connection.
+- **Different `protocol_version`** → error `protocol_mismatch`, with `"expected": 1` in the payload, then the server closes the connection.
+  - The client shows: "Backend and client versions don't match. Reinstall Quicksilver."
+
+### `health` (s→c push)
+Sent once right after `welcome`, then every `health_interval_s` seconds.
+```json
+{"uptime_s": 123,
+ "sources": [
+   {"name": "poe_ninja", "status": "ok", "last_success": "2026-11-19T21:00:00.000Z",
+    "cache_age_s": 245, "detail": null, "rate_limit": null},
+   {"name": "trade_api", "status": "idle", "last_success": null,
+    "cache_age_s": null, "detail": null,
+    "rate_limit": {"policy": "trade-search-request-limit", "queued": 0, "restricted_until": null}}
+ ]}
+```
+`status` takes one of these values:
+
+| `status` | Meaning |
+|---|---|
+| `idle` | Not used yet in this run |
+| `ok` | The last request succeeded |
+| `degraded` | The last request failed, but cached data is still being served (marked stale) |
+| `down` | Requests are failing and there is no usable cache |
+
+Source names:
+- `poe_ninja` (Week 2)
+- `trade_leagues`, the trade league list (Week 2)
+- `trade_api` (Week 3)
+- `client_log` (Week 4)
+
+The client shows the sources in the order given.
+
+### `error` (either direction)
+Echoes the `id` of the message that caused it, or `null`.
+```json
+{"code": "unknown_league", "message": "League 'Foo' isn't available."}
+```
+| Code | When |
+|---|---|
+| `bad_json` | The frame isn't valid JSON, or isn't an object with `type` and `payload` |
+| `bad_request` | A required payload field is missing or has the wrong type |
+| `unknown_type` | The `type` isn't known (the connection stays open) |
+| `unauthorized` | Bad or missing token, or a message sent before `hello` (then the connection closes) |
+| `protocol_mismatch` | Versions differ (then the connection closes) |
+| `unknown_league` | The league isn't in the current league list |
+| `upstream_unavailable` | A data source can't be reached and there's no cached data to answer with |
+| `internal` | A bug in the backend. Its details go to the backend log, not to the client. |
+
+`message` is plain language for display. The client decides what to do based on `code`, never `message`.
+
+## Dashboard
+
+### `leagues.list` (c→s) → `leagues.result` (s→c)
+- Request payload: `{}`.
+- Reply:
+```json
+{"leagues": [{"id": "Covens", "text": "Covens"}, {"id": "Standard", "text": "Standard"}],
+ "current": "Covens"}
+```
+- Leagues come from the trade league list, filtered to `realm == "pc"` and kept in source order (ADR-004, DATA_SOURCES).
+- `current` is the active league, or `null`.
+
+### `league.set` (c→s) → `league.changed` (s→c)
+- Request payload: `{"league": "Covens"}`.
+- Reply: `{"league": "Covens"}`.
+- The backend saves the league to its settings file and restores it on the next launch (DASH-2).
+- If the client is subscribed to rates, a fresh `rates.update` push follows.
+- A league that isn't in the list gets error `unknown_league`.
+
+**Default league:** if none is saved, the backend uses the first PC league in the list (the current challenge league), or `Standard` if the list can't be fetched.
+
+**Settings file:** `settings.json` in `:filename.basedir(:user_config, "Quicksilver")`. That is `%APPDATA%\Quicksilver\` on Windows and `~/.config/Quicksilver/` on Linux.
+
+### `rates.subscribe` / `rates.unsubscribe` (c→s)
+- Payload: `{}`.
+- **Subscribe:** the server replies with a `rates.update` that echoes the id. After that it pushes a `rates.update` (id `null`) whenever the cache refreshes or the league changes.
+- **Unsubscribe:** the server replies with `rates.unsubscribed` (payload `{}`) and stops the pushes.
+- If there's no data yet and the source is down, the server sends error `upstream_unavailable` instead. The subscription stays active, and data is pushed once it arrives.
+
+### `rates.update` (s→c)
+```json
+{"league": "Covens", "source": "poe_ninja", "fetched_at": "2026-11-19T21:00:00.000Z",
+ "stale": false, "divine_chaos": 145.7,
+ "rates": [
+   {"id": "divine", "name": "Divine Orb", "chaos": 145.7, "divine": 1.0,
+    "change_7d": -2.1, "volume_chaos": 120345.6}
+ ]}
+```
+- Values are numbers.
+  - `chaos` is the poe.ninja `primaryValue`.
+  - `divine = chaos / divine_chaos`.
+  - `change_7d` (sparkline total change, in percent) and `volume_chaos` may be `null`.
+- `stale: true` means the fetch failed and this is cached data. The client shows its age (NFR-REL-3).
+- Rows are sorted by `chaos`, descending.
+- **No icons in v1.** The client can't download them (the frontend never calls external services). If icons are added later, the backend will serve them.
+
+## Price check (draft, finalised in Week 3)
 | Type | Direction | Purpose |
 |---|---|---|
 | `price.request` | c→s | Raw clipboard item text |
-| `price.result` | s→c | Parsed item summary, estimate (low/median/high in chaos and divines), source, confidence, listing count |
+| `price.result` | s→c | Parsed item summary, estimate (low/median/high in chaos and divines), source, confidence, listing count, and (for rares with the kill switch off) a trade-site URL |
 | `price.pending` | s→c | Sent when a trade API request is queued behind a rate limit |
 
-### Trade overlay
+## Trade overlay (draft, finalised in Week 4)
 | Type | Direction | Purpose |
 |---|---|---|
 | `trade.incoming` | s→c (push) | Buyer, item, price, stash tab name, left/top position, league |
 | `trade.dismiss` | c→s | User closed a request |
 
-### Session (later)
+## Session (draft, later)
 | Type | Direction | Purpose |
 |---|---|---|
 | `session.update` | s→c (push) | Current zone, time in zone, maps run today |
 
 ## Open points
-- Error code list
 - Whether quick-reply text is built by the client or the server. Either way, the **user** presses the key that sends it (one action per keypress).
