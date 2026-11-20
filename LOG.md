@@ -102,3 +102,46 @@ Newest entries at the bottom. Every agent session ends with an entry. This log i
 - Next step:
   - Collect item samples.
   - Install Qt and MSVC.
+
+### 2026-11-19: B1 + B2 backend walking skeleton
+- Who: backend agent
+- Goal: first application code. Mix app with a supervision tree, `/ws` gateway with the v1 handshake and envelope, the `health` push, settings file (PLAN B1, B2).
+- Done:
+  - Mix project in `backend/` (`:quicksilver`, Bandit + WebSockAdapter + Jason; `mint_web_socket` test-only). No HTTP client and no external-API code.
+  - Supervision tree (`Quicksilver.Application` moduledoc explains each restart strategy): `Quicksilver.Supervisor` one_for_one → `Settings` (permanent) → `Health` (permanent) → `Gateway.Endpoint` (Bandit on 127.0.0.1, permanent; connections are temporary, one process each) → `StdinWatcher` (transient; off in tests and IEx).
+  - Launch per PROTOCOL: `QUICKSILVER_PORT` (default 47474, 0 = OS picks), `QUICKSILVER_TOKEN` (unset = check off + warning), exactly one `QUICKSILVER_READY {"port":N,"protocol_version":1}` line with the real port, exit on stdin EOF. Logs go to stderr so stdout stays clean.
+  - Gateway: envelope (`ts` UTC ms + Z, unknown fields ignored), hello within 5 s, token check (constant time), `protocol_mismatch` with `expected`, `unauthorized` before hello / on timeout, `bad_json`, `bad_request`, `unknown_type` (stays open), `internal` for handler crashes (stays open). Routing seam: `Gateway.Routes` (type → `Gateway.Handler` module).
+  - `leagues.list`, `league.set`, `rates.*` answer `unknown_type` for now: TODO(Phase C) in `Gateway.Routes` and `Gateway.Socket`.
+  - Health: `Quicksilver.Health.report(source, attrs)`; `poe_ninja` and `trade_leagues` registered `idle`; `health` pushed after `welcome`, then every 5 s.
+  - Settings: `settings.json` in `:filename.basedir(:user_config, "Quicksilver")`, atomic writes (temp file + fsync + rename), corrupt file moved to `.corrupt`, dir overridable.
+  - Tests: 67 (66 by default + 1 opt-in e2e that boots `mix run`, reads READY, handshakes, closes stdin, checks exit). All pass with the network off (run in a loopback-only namespace).
+- Decisions (readings of PROTOCOL where the text is silent; see questions below):
+  - Any frame before `hello` that isn't a `hello` envelope, including invalid JSON and binary frames, gets `unauthorized` + close (not `bad_json`).
+  - A `hello` with a missing or mistyped `protocol_version`/`client_version` gets `bad_request` + close. Check order: `protocol_mismatch` → `bad_request` → `unauthorized`, so an old/new client always gets the "reinstall" message.
+  - Handshake failures close with WebSocket status 1008.
+  - A second `hello` after the handshake gets `bad_request`; the connection stays open.
+  - An envelope `id` that isn't a string or null gets `bad_json` (with id `null`).
+  - The client's `ts` isn't validated.
+  - No WebSocket idle timeout (the client may stay silent; health pushes keep flowing).
+  - A crashed listener restarts on the same port it first bound, so the single READY line stays true.
+  - Dev-only env var `QUICKSILVER_EXIT_ON_STDIN_EOF=0` turns off the stdin guard (the client never sets it).
+- Problems / surprises:
+  - Bandit's default WebSocket idle timeout is 60 s; it's set to `:infinity` on purpose.
+  - `WebSockAdapter.UpgradeError` has no `plug_status`, so it's rescued to return 400 instead of 500.
+  - On Windows, verify in B6: (1) stdin EOF detection under `erl -noshell` in a release, (2) `File.rename` replacing an existing `settings.json`.
+- Handoffs:
+  - **integrations (I1/I2):**
+    - Report status with `Quicksilver.Health.report(:poe_ninja | :trade_leagues, status: :ok | :degraded | :down | :idle, cached_at: DateTime, detail: "...", rate_limit: %{policy:, queued:, restricted_until:})`. Full contract: the `Quicksilver.Health` moduledoc. It's a cast, so it never blocks; invalid args raise in the caller.
+    - Put your supervisor in `Quicksilver.Application` children between `Health` and the `Endpoint` (marked with a comment).
+    - Suggested home: `lib/quicksilver/integrations/` / `Quicksilver.Integrations.*`, so lane ownership is path-clear.
+    - Add your own HTTP client dependency. `mint` is only present as a test dependency.
+  - **frontend (F1):**
+    - Read or redirect the backend's **stderr** as well as stdout: logs go to stderr, and a full pipe would block the backend.
+    - The READY line matches `^QUICKSILVER_READY \{"port":(\d+),"protocol_version":1\}$`.
+    - Handshake failures arrive as an `error` message followed by close code 1008.
+  - **owner (PROTOCOL questions; I didn't edit PROTOCOL.md):**
+    1. Confirm the readings above: pre-hello garbage → `unauthorized`; bad hello payload → `bad_request` + close; check order; second hello → `bad_request`; non-string id → `bad_json`; close code 1008.
+    2. Which `hello` fields are required? Implemented: `protocol_version` (integer) and `client_version` (string) always; `token` only when the backend has one.
+    3. Security proposal: reject WebSocket upgrades that carry an `Origin` header, so a web page in the user's browser can't connect to `ws://127.0.0.1:47474` (matters in dev, where there's no token). Check first that QWebSocket sends no Origin by default. This would be a PROTOCOL change, so it's not implemented.
+    4. Consider documenting `QUICKSILVER_EXIT_ON_STDIN_EOF` as dev-only in "Launch and lifetime", or say it's out of scope.
+- Next step: integrations I1/I2, then the backend Phase C Dashboard handler (`leagues.list`, `league.set`, `rates.*`), with rates pushes via a subscriber registry.

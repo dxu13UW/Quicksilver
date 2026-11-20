@@ -23,6 +23,12 @@ The only interface between the C++ client and the Elixir backend.
 - Port: `QUICKSILVER_PORT` if set; otherwise **47474**.
 - Token: if `QUICKSILVER_TOKEN` isn't set, the token check is off and a warning is logged. The production client always sets it.
 - The backend still prints the `QUICKSILVER_READY` line.
+- `QUICKSILVER_EXIT_ON_STDIN_EOF=0` (dev only) turns off the stdin guard, for running the backend in the background with no stdin. The production client never sets it.
+
+**Output streams:**
+- stdout carries **only** the READY line.
+- All logs go to stderr.
+- The client must keep reading (or discarding) **both** streams. A full pipe would block the backend.
 
 ## Envelope
 Every message has the same outer shape:
@@ -39,6 +45,9 @@ Every message has the same outer shape:
 
 Rules:
 - A receiver ignores fields it doesn't recognise. This lets new fields be added without breaking anything.
+- An `id` that is neither a string nor `null` is `bad_json`, and the error goes back with id `null`.
+- `ts` is informational. Receivers don't validate it or rely on it, so clock differences don't matter.
+- Binary frames are `bad_json`, or `unauthorized` before `hello`.
 - For an unknown `type`, the server replies with error `unknown_type` and **keeps the connection open**.
 
 ## Connection
@@ -60,6 +69,23 @@ Rules:
 - **Wrong token** → error `unauthorized`, then the server closes the connection.
 - **Different `protocol_version`** → error `protocol_mismatch`, with `"expected": 1` in the payload, then the server closes the connection.
   - The client shows: "Backend and client versions don't match. Reinstall Quicksilver."
+
+**Handshake rules in detail** (decided 2026-11-19)
+- **Required `hello` fields:**
+  - `protocol_version` (integer) and `client_version` (string), always.
+  - `token` (string), whenever the backend has one.
+- **Check order:**
+  1. `protocol_mismatch`, so a client on another version always gets the "reinstall" message.
+  2. `bad_request`, for a missing or mistyped field.
+  3. `unauthorized`.
+
+  Every handshake failure sends the error, then closes the connection with WebSocket close code **1008** (policy violation).
+- **Anything before `hello`** gets `unauthorized`, then the connection closes. That includes invalid JSON, a binary frame, or any other type.
+- **A second `hello`** after the handshake gets `bad_request`. The connection stays open.
+- **Origin check:** an upgrade request that carries an `Origin` header is refused with HTTP 403.
+  - Browsers always send `Origin`, and the Qt client doesn't, so this stops web pages from connecting to the backend, even in dev mode where there's no token.
+  - The client must create its `QWebSocket` with an empty origin. Confirm this in F1.
+  - *Not implemented yet:* this is a backend handoff for Phase C.
 
 ### `health` (s→c push)
 Sent once right after `welcome`, then every `health_interval_s` seconds.

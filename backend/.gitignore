@@ -1,0 +1,3 @@
+# Most build output is ignored by the root .gitignore (/backend/_build, /backend/deps, ...).
+# ExUnit @tag :tmp_dir scratch space:
+/tmp/
