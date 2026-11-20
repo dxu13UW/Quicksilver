@@ -85,7 +85,7 @@ Rules:
 - **Origin check:** an upgrade request that carries an `Origin` header is refused with HTTP 403.
   - Browsers always send `Origin`, and the Qt client doesn't, so this stops web pages from connecting to the backend, even in dev mode where there's no token.
   - The client must create its `QWebSocket` with an empty origin. Confirm this in F1.
-  - *Not implemented yet:* this is a backend handoff for Phase C.
+  - Any `Origin` value counts, including `null` and an empty one. The check runs before upgrade validation, so a plain `GET /ws` with `Origin` also gets 403 (body `Forbidden`).
 
 ### `health` (s→c push)
 Sent once right after `welcome`, then every `health_interval_s` seconds.

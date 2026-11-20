@@ -16,18 +16,22 @@ defmodule Quicksilver.LaunchE2ETest do
   test "READY line, handshake, and exit on stdin close" do
     token = Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
 
+    {exe, args} = mix_command(["run", "--no-halt"])
+
     port =
-      Port.open({:spawn_executable, System.find_executable("mix")}, [
+      Port.open({:spawn_executable, exe}, [
         :binary,
         :exit_status,
         {:line, 4096},
-        args: ["run", "--no-halt"],
+        args: args,
         cd: File.cwd!(),
         env: [
           {~c"MIX_ENV", ~c"dev"},
           {~c"QUICKSILVER_PORT", ~c"0"},
           {~c"QUICKSILVER_TOKEN", String.to_charlist(token)},
-          {~c"QUICKSILVER_EXIT_ON_STDIN_EOF", ~c"1"}
+          {~c"QUICKSILVER_EXIT_ON_STDIN_EOF", ~c"1"},
+          # No live requests from the dev boot (integrations use HTTP.Disabled).
+          {~c"QUICKSILVER_OFFLINE", ~c"1"}
         ]
       ])
 
@@ -43,6 +47,36 @@ defmodule Quicksilver.LaunchE2ETest do
     Port.close(port)
     assert_receive {:ws, ^client, _closed}, 10_000
     wait_until_refused(tcp_port)
+  end
+
+  # On Windows `mix` is mix.bat -> elixir.bat -> erl.exe under cmd.exe. Two
+  # problems with that inside an Erlang port: cmd runs the registry AutoRun hook
+  # (on some machines it prints a banner and changes directory), and output of
+  # programs cmd starts never reaches the port's pipe. So start erl.exe directly
+  # with the arguments elixir.bat would build.
+  defp mix_command(args) do
+    case :os.type() do
+      {:win32, _} ->
+        elixir_root = Path.dirname(to_string(:code.lib_dir(:elixir)))
+        mix_script = Path.join([elixir_root, "..", "bin", "mix"]) |> Path.expand()
+
+        {System.find_executable("erl"),
+         [
+           "-noshell",
+           "-elixir_root",
+           elixir_root,
+           "-pa",
+           Path.join([elixir_root, "elixir", "ebin"]),
+           "-s",
+           "elixir",
+           "start_cli",
+           "-extra",
+           mix_script | args
+         ]}
+
+      _ ->
+        {System.find_executable("mix"), args}
+    end
   end
 
   defp await_ready(port, lines) do

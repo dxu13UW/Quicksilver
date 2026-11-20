@@ -1,0 +1,81 @@
+{
+  "body": {
+    "buildLeagues": [],
+    "economyLeagues": [
+      {
+        "displayName": "Covens",
+        "isPrivate": false,
+        "name": "Covens",
+        "url": "covens"
+      },
+      {
+        "displayName": "Hardcore Covens",
+        "isPrivate": false,
+        "name": "Hardcore Covens",
+        "url": "covenshc"
+      },
+      {
+        "displayName": "Standard",
+        "isPrivate": false,
+        "name": "Standard",
+        "url": "standard"
+      },
+      {
+        "displayName": "Hardcore",
+        "isPrivate": false,
+        "name": "Hardcore",
+        "url": "hardcore"
+      }
+    ],
+    "oldBuildLeagues": [],
+    "oldEconomyLeagues": [
+      {
+        "displayName": "Allflame",
+        "isPrivate": false,
+        "name": "Allflame",
+        "url": "allflame"
+      },
+      {
+        "displayName": "Ancestors",
+        "isPrivate": false,
+        "name": "Ancestors",
+        "url": "ancestors"
+      },
+      {
+        "displayName": "Mirage",
+        "isPrivate": false,
+        "name": "Mirage",
+        "url": "mirage"
+      }
+    ]
+  },
+  "headers": [
+    [
+      "date",
+      "Fri, 20 Nov 2026 00:42:18 GMT"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "cache-control",
+      "public, max-age=300, stale-while-revalidate=300, stale-if-error=86400"
+    ],
+    [
+      "etag",
+      "W/efe83525bf179a64bf0f25005fadc80a"
+    ],
+    [
+      "age",
+      "140"
+    ]
+  ],
+  "note": "Trimmed: build league lists emptied, oldEconomyLeagues cut to 3. economyLeagues complete.",
+  "recorded_at": "2026-11-20T00:42:18Z",
+  "request": {
+    "method": "GET",
+    "url": "https://poe.ninja/poe1/api/data/index-state"
+  },
+  "status": 200
+}

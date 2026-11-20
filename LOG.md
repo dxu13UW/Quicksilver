@@ -170,3 +170,64 @@ Newest entries at the bottom. Every agent session ends with an entry. This log i
   3. Smoke-test by hand: run `mix run --no-halt` in one terminal, and check that the READY line appears and Ctrl+C / closing stdin stops it.
   4. Continue Week 2 with integrations I1/I2 (poe.ninja + trade league clients, rate limiter, cache, Health reporting). Then backend Phase C, Q1, and F1/F2 once Qt is installed.
   5. Keep appending every design decision to the Obsidian note `C:\Users\turtl\Documents\Obsidian\TCSS490 Generative AI and Software Development\Artifact 5.md`, as the next D-number.
+
+### 2026-11-19: I1 + I2 poe.ninja client, league list, rate limiter
+- Who: integrations agent
+- Goal: PLAN I1 (poe.ninja client with cache and refresh schedule: currency plus one item category) and I2 (league list from the official API; league selection stored in backend config).
+- Done:
+  - `Quicksilver.Integrations.*` in `backend/lib/quicksilver/integrations/`. Subtree `Integrations.Supervisor` (rest_for_one: PubSub Registry → TaskSupervisor → RateLimiter → Leagues → PoeNinja), added to `Quicksilver.Application` between Health and the Endpoint.
+  - `HTTP.get_json/2`: the only external HTTP path. It sends the project User-Agent, gzip and JSON accept headers, and goes through the limiter. Adapters: `MintAdapter` (TLS verify_peer + `cacerts_get`), `Disabled` (refuses; default in the test env and with `QUICKSILVER_OFFLINE=1`).
+  - `RateLimiter`: limits only from `x-rate-limit-*` headers. Per-policy hit history, resynced from `-State`. Requests queue (FIFO), never dropped. One in flight until a policy is seen, and always for hosts that send no headers. Pauses on an active restriction or a 429 (`max(Retry-After, restriction)`). Reports `rate_limit` to Health for mapped buckets.
+  - `Leagues`: trade league list (PC, source order), cached 1 h, fetched at startup. Current league = saved setting → first PC league → `Standard`. `set_current` validates, saves `"league"` via `Quicksilver.Settings`, broadcasts. Health `trade_leagues`.
+  - `PoeNinja`: index-state (1 h) + `Currency` (exchange) + `UniqueAccessory` (stash) for the current league. TTL = `max-age − Age` (fallback 30 min, floor 60 s). Stale-if-error from the header (fallback 24 h). Back-off retries. Pushes rates on refresh and on league change. Health `poe_ninja`.
+  - `mint` moved from test-only to a runtime dependency (already in `mix.lock`; nothing new downloaded).
+  - Recorded fixtures in `backend/test/fixtures/integrations/` (trade leagues, index-state, Currency, UniqueAccessory trimmed to 15 lines), replayed by `test/support/integrations/fixture_http.ex`.
+  - Tests: 46 new (HTTP/CacheControl, parsers, rate limiter with an injected clock, Leagues, PoeNinja, app subtree). Whole suite: 118 tests, 0 failures (117 + 1 e2e). `mix test` is offline by construction.
+  - DATA_SOURCES.md: implementation notes, TTL table filled in, new endpoint facts, behaviour-change log entry.
+- Decisions:
+  - Freshness is `max-age − Age`, because poe.ninja is behind Cloudflare. Refetching at plain `max-age` would only get the same CDN copy later.
+  - Rate check reads "would exceed `max`", not "would reach": the last slot of a tier is usable, with a 500 ms margin on window expiry. DATA_SOURCES wording updated to match.
+  - `divine_chaos` comes from the exchange `divine` line (so the Divine row is exactly 1.0 div), falling back to `1 / core.rates.divine`.
+  - poe.ninja is only asked about leagues its index-state lists (Ruthless leagues are never requested; Health shows `down` with "poe.ninja has no data for <league>").
+  - A saved league that has ended is replaced by the default for the run, but the saved value isn't overwritten. Only an explicit `set_current` writes it.
+  - `set_current` to the same league still broadcasts `league_changed`, so a fresh `rates.update` follows (PROTOCOL).
+  - Test-env defaults (no network, no auto refresh) are decided in `Integrations.Config` at compile time, because `config/` belongs to the backend lane.
+  - Caches are in memory only for now: an offline start has no league list (falls back to the saved league or `Standard`).
+- Problems / surprises:
+  - Live (2026-11-19): 1 div = 216.2 c (145.7 c on 11-15). index-state lost `snapshotVersions`. The exchange overview does include a `divine` line. `divineValue` is missing on about 30% of UniqueAccessory lines. Neither host sends rate-limit headers on these endpoints. The trade league list once came back with `Age: 1534` against `max-age=120` (stale CDN copy). Offered `br`, poe.ninja answers in brotli, so we offer only gzip.
+  - TLS to both hosts verifies fine from Erlang/OTP 27.2.
+  - Live calls made: 4 with curl (recording) + 8 from the Erlang client (two smoke runs), all with the project User-Agent.
+  - Out-of-lane edits: the agreed one line in `application.ex`; `test/quicksilver/application_test.exs` (child count 3 → 4, plus asserting the integrations supervisor), which the added child makes unavoidable; and the `mix.exs` deps entry (sanctioned). New support files under `test/support/integrations/`.
+- Handoffs:
+  - **backend (Phase C, Dashboard routes)**: public API in `Quicksilver.Integrations` (moduledoc has the details and the error-code table):
+    - `list_leagues(timeout \ 15_000) :: {:ok, [%{id, text}]} | {:error, :unavailable}`. Waits for the first fetch if one is running.
+    - `current_league() :: String.t() | nil`. Use it for `welcome.league` and `leagues.result.current`.
+    - `set_league(id) :: :ok | {:error, :unknown_league | :unavailable | {:settings, reason}}`.
+    - `rates(opts \ []) :: {:ok, rates} | {:error, :no_league | :league_not_covered | :unavailable}`. `rates` has exactly the `rates.update` fields; only `fetched_at` is a `DateTime` (use `Quicksilver.Time.iso8601_ms/1`). It waits for the first fetch if nothing is cached yet.
+    - `item_prices(type, opts \ [])`, for Week 3.
+    - `subscribe(:rates | :league)` / `unsubscribe/1`: Registry-based and idempotent, and they end with the process. Messages: `{Quicksilver.Integrations, :rates, rates}` and `{Quicksilver.Integrations, :league_changed, id}`. Suggested flow: each socket process subscribes to `:rates` on `rates.subscribe` and turns each message into a `rates.update` push (id null). After `league.set`, no extra push is needed: a rates message follows from cache or after the fetch.
+    - In the test env the app's integrations processes run but never fetch (`HTTP.Disabled`, no auto refresh). Calling `list_leagues/0` or `rates/0` there would set the app's Health entries to `down`, so gateway tests should stub at the gateway level or start private instances (see `test/support/integrations/integrations_case.ex`).
+    - Please add `{~c"QUICKSILVER_OFFLINE", ~c"1"}` to the env in `test/e2e/launch_e2e_test.exs`: the dev boot otherwise makes a few live requests (league list + poe.ninja) during the e2e test. It passes either way.
+    - Optional: move the test-env defaults into `config/test.exs` as `config :quicksilver, Quicksilver.Integrations, http_adapter: Quicksilver.Integrations.HTTP.Disabled, auto_refresh: false` (the compile-time defaults would then be redundant but harmless).
+  - **owner**: append the decisions above to the Obsidian decision log.
+- Next step: backend Phase C wires the Dashboard routes to this API. Integrations next: I3 (trade search/fetch, Week 3), and keeping the last good league list on disk for offline starts.
+
+### 2026-11-19: First native Windows session: B1/B2 verified, Origin check, I1/I2 review
+- Who: me + Claude Code (main session; backend and integrations agents)
+- Goal: run the Windows checks from the WSL handoff, then continue Week 2.
+- Done:
+  - `mix test` and `mix test --include e2e` pass on Windows: 118 tests, 0 failures, after Origin and I1/I2.
+  - B6 checks for the dev build: stdin EOF stops the backend (`mix run` from Git Bash), and `File.rename` replaces an existing `settings.json`. Re-check with a release later.
+  - Fixed `test/e2e/launch_e2e_test.exs` for Windows: it starts `erl.exe` directly instead of `mix.bat`, and sets `QUICKSILVER_OFFLINE=1` (handoff from integrations).
+  - Backend agent: Origin check. Any `Origin` header on `/ws` → 403 `Forbidden`, checked before upgrade validation; `test/quicksilver/gateway/origin_test.exs` (5 tests); `WSClient.connect/3` takes optional headers. PROTOCOL.md updated to the implemented behaviour.
+  - Reviewed the I1/I2 entry above: the full suite passes, there's no HTTP outside `Integrations.HTTP`, and the User-Agent is set. The integrations agent's edit to `application_test.exs` (now 4 children) is accepted.
+- Decisions: launch the backend without cmd.exe in between, or with `cmd /d` (Obsidian D23).
+- Problems / surprises:
+  - Erlang/OTP 27.2 rejects the `builds.hex.pm` TLS chain (Let's Encrypt "YR": key_usage_mismatch), so Mix couldn't install rebar3. Installed rebar3 3.24.0 by hand from its GitHub release (`mix local.rebar rebar3 <file>`). poe.ninja and pathofexile.com verify fine. A later OTP upgrade should fix it.
+  - This machine's cmd.exe AutoRun (`%USERPROFILE%\alias.cmd`) prints a banner and changes into `Code_dir\tools` on every cmd start.
+  - Under an Erlang port on Windows, output from programs that cmd.exe starts never reaches the pipe, though cmd's built-in `echo` does.
+  - The Erlang VM sets `ERL_CONSOLE_MODE=windowed` in its environment (it wasn't the cause here, but children inherit it).
+- Handoffs:
+  - **Frontend (F1):** start the backend with QProcess on `erl.exe`/the release executable, or through `cmd /d /c`; never a plain `.bat` launch (AutoRun). Confirm that QWebSocket sends no `Origin` header, or the backend returns 403.
+  - **Backend (Phase C):** wire `leagues.list`, `league.set` and `rates.*` to `Quicksilver.Integrations` (see the I1/I2 entry).
+- Next step: the owner installs VS 2022 Build Tools (C++ workload) and Qt 6.8 (MSVC 2022 64-bit + Qt WebSockets). Then a toolchain smoke build, F1, backend Phase C, F2, and Q1.

@@ -1,0 +1,938 @@
+{
+  "body": {
+    "lines": [
+      {
+        "baseType": "Leather Belt",
+        "chaosValue": 263040,
+        "count": 1,
+        "detailsId": "foulborn-headhunter-culling-strike-minimap-icons-leather-belt",
+        "divineValue": 1200,
+        "exaltedValue": 328964,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+55 to Dexterity"
+          },
+          {
+            "optional": false,
+            "text": "+(54-60) to maximum Life"
+          },
+          {
+            "optional": false,
+            "text": "When you Kill a Rare monster, you gain its Modifiers for 60 seconds"
+          }
+        ],
+        "flavourText": "\"A man's soul rules from a cavern of bone, learns and\njudges through flesh-born windows. The heart is meat.\nThe head is where the Man is.\"\n- Lavianga, Advisor to Kaom",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSGVhZGh1bnRlciIsInciOjIsImgiOjEsInNjYWxlIjoxLCJtdXRhdGVkIjp0cnVlfV0/2a93cbdad2/Headhunter.png",
+        "id": 135098,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(29-33) to maximum Life"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Belt",
+        "levelRequired": 40,
+        "listingCount": 1,
+        "mutatedModifiers": [
+          {
+            "optional": false,
+            "text": "Culling Strike"
+          },
+          {
+            "optional": false,
+            "text": "Rare and Unique Enemies within 120 metres have Minimap Icons"
+          }
+        ],
+        "name": "Foulborn Headhunter",
+        "sparkLine": {
+          "data": [],
+          "totalChange": 0
+        },
+        "statIds": [
+          "additional_dexterity",
+          "additional_strength"
+        ],
+        "tradeInfo": [
+          {
+            "max": 0,
+            "min": 0,
+            "mod": "explicit.stat_2524254339"
+          },
+          {
+            "max": 0,
+            "min": 0,
+            "mod": "explicit.stat_2543266731"
+          }
+        ],
+        "variant": "Culling Strike, Minimap Icons"
+      },
+      {
+        "baseType": "Leather Belt",
+        "chaosValue": 113524,
+        "count": 4,
+        "detailsId": "foulborn-headhunter-culling-strike-leather-belt",
+        "divineValue": 517.9,
+        "exaltedValue": 141976,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(40-66) to Strength"
+          },
+          {
+            "optional": false,
+            "text": "+(40-64) to Dexterity"
+          },
+          {
+            "optional": false,
+            "text": "+(50-62) to maximum Life"
+          },
+          {
+            "optional": false,
+            "text": "When you Kill a Rare monster, you gain its Modifiers for 60 seconds"
+          }
+        ],
+        "flavourText": "\"A man's soul rules from a cavern of bone, learns and\njudges through flesh-born windows. The heart is meat.\nThe head is where the Man is.\"\n- Lavianga, Advisor to Kaom",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSGVhZGh1bnRlciIsInciOjIsImgiOjEsInNjYWxlIjoxLCJtdXRhdGVkIjp0cnVlfV0/2a93cbdad2/Headhunter.png",
+        "id": 135150,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(25-48) to maximum Life"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Belt",
+        "levelRequired": 40,
+        "listingCount": 4,
+        "mutatedModifiers": [
+          {
+            "optional": false,
+            "text": "Culling Strike"
+          }
+        ],
+        "name": "Foulborn Headhunter",
+        "sparkLine": {
+          "data": [],
+          "totalChange": 0
+        },
+        "statIds": [
+          "additional_dexterity",
+          "additional_strength"
+        ],
+        "tradeInfo": [
+          {
+            "max": 0,
+            "min": 0,
+            "mod": "explicit.stat_2524254339"
+          }
+        ],
+        "variant": "Culling Strike"
+      },
+      {
+        "baseType": "Leather Belt",
+        "chaosValue": 108614,
+        "count": 2,
+        "detailsId": "foulborn-headhunter-minimap-icons-leather-belt",
+        "divineValue": 495.5,
+        "exaltedValue": 135835,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(40-55) to Dexterity"
+          },
+          {
+            "optional": false,
+            "text": "+(50-72) to maximum Life"
+          },
+          {
+            "optional": false,
+            "text": "(21-30)% increased Damage with Hits against Rare monsters"
+          },
+          {
+            "optional": false,
+            "text": "When you Kill a Rare monster, you gain its Modifiers for 60 seconds"
+          }
+        ],
+        "flavourText": "\"A man's soul rules from a cavern of bone, learns and\njudges through flesh-born windows. The heart is meat.\nThe head is where the Man is.\"\n- Lavianga, Advisor to Kaom",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSGVhZGh1bnRlciIsInciOjIsImgiOjEsInNjYWxlIjoxLCJtdXRhdGVkIjp0cnVlfV0/2a93cbdad2/Headhunter.png",
+        "id": 135487,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(25-48) to maximum Life"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Belt",
+        "levelRequired": 40,
+        "listingCount": 2,
+        "mutatedModifiers": [
+          {
+            "optional": false,
+            "text": "Rare and Unique Enemies within 120 metres have Minimap Icons"
+          }
+        ],
+        "name": "Foulborn Headhunter",
+        "sparkLine": {
+          "data": [],
+          "totalChange": 0
+        },
+        "statIds": [
+          "additional_dexterity",
+          "additional_strength"
+        ],
+        "tradeInfo": [
+          {
+            "max": 0,
+            "min": 0,
+            "mod": "explicit.stat_2543266731"
+          }
+        ],
+        "variant": "Minimap Icons"
+      },
+      {
+        "baseType": "Amethyst Ring",
+        "chaosValue": 87461,
+        "count": 13,
+        "detailsId": "original-sin-amethyst-ring",
+        "divineValue": 399.0,
+        "exaltedValue": 109381,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "All Elemental Damage Converted to Chaos Damage"
+          },
+          {
+            "optional": false,
+            "text": "Chaos Resistance of Enemies within 6 metres is 0"
+          }
+        ],
+        "flavourText": "Innocence rose to godhood not on inspired faith,\nbut on the vilification and hatred of another.",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvU2FuY3R1bVNwZWNpYWxVbmlxdWVSaW5nIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/e0ff1c1c6b/SanctumSpecialUniqueRing.png",
+        "id": 102015,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(13-22)% to Chaos Resistance"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Ring",
+        "levelRequired": 52,
+        "listingCount": 13,
+        "name": "Original Sin",
+        "sparkLine": {
+          "data": [
+            null,
+            null,
+            null,
+            null,
+            0,
+            23.95,
+            39.24
+          ],
+          "totalChange": 39.24
+        }
+      },
+      {
+        "baseType": "Leather Belt",
+        "chaosValue": 52586,
+        "count": 31,
+        "detailsId": "headhunter-leather-belt",
+        "divineValue": 239.9,
+        "exaltedValue": 65765,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(40-66) to Strength"
+          },
+          {
+            "optional": false,
+            "text": "+(40-66) to Dexterity"
+          },
+          {
+            "optional": false,
+            "text": "+(50-72) to maximum Life"
+          },
+          {
+            "optional": false,
+            "text": "(20-30)% increased Damage with Hits against Rare monsters"
+          },
+          {
+            "optional": false,
+            "text": "When you Kill a Rare monster, you gain its Modifiers for 60 seconds"
+          }
+        ],
+        "flavourText": "\"A man's soul rules from a cavern of bone, learns and\njudges through flesh-born windows. The heart is meat.\nThe head is where the Man is.\"\n- Lavianga, Advisor to Kaom",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSGVhZGh1bnRlciIsInciOjIsImgiOjEsInNjYWxlIjoxfV0/e9542ec6ee/Headhunter.png",
+        "id": 607,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(25-48) to maximum Life"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Belt",
+        "levelRequired": 40,
+        "listingCount": 31,
+        "name": "Headhunter",
+        "sparkLine": {
+          "data": [
+            null,
+            0,
+            67.06,
+            93.28,
+            154.3,
+            232.1,
+            285.1
+          ],
+          "totalChange": 285.1
+        },
+        "statIds": [
+          "additional_dexterity",
+          "additional_strength"
+        ]
+      },
+      {
+        "baseType": "Heavy Belt",
+        "chaosValue": 50701,
+        "count": 2,
+        "detailsId": "foulborn-mageblood-4-flasks-heavy-belt",
+        "divineValue": 231.3,
+        "exaltedValue": 63408,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(30-60) to Dexterity"
+          },
+          {
+            "optional": false,
+            "text": "+(15-30)% to Fire Resistance"
+          },
+          {
+            "optional": false,
+            "text": "+(15-25)% to Cold Resistance"
+          },
+          {
+            "optional": false,
+            "text": "Magic Utility Flasks cannot be Used"
+          },
+          {
+            "optional": false,
+            "text": "Magic Utility Flask Effects cannot be removed"
+          }
+        ],
+        "flavourText": "Rivers of power course through your veins.",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSW5qZWN0b3JCZWx0IiwidyI6MiwiaCI6MSwic2NhbGUiOjEsIm11dGF0ZWQiOnRydWV9XQ/8f193a2016/InjectorBelt.png",
+        "id": 142084,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(25-42) to Strength"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Belt",
+        "levelRequired": 44,
+        "listingCount": 2,
+        "mutatedModifiers": [
+          {
+            "optional": false,
+            "text": "Rightmost 4 Magic Utility Flasks constantly apply their Flask Effects to you"
+          }
+        ],
+        "name": "Foulborn Mageblood",
+        "sparkLine": {
+          "data": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            null
+          ],
+          "totalChange": 0
+        },
+        "statIds": [
+          "additional_dexterity",
+          "additional_strength"
+        ],
+        "tradeInfo": [
+          {
+            "max": 0,
+            "min": 0,
+            "mod": "explicit.stat_2651470813"
+          }
+        ],
+        "variant": "4 Flasks"
+      },
+      {
+        "baseType": "Heavy Belt",
+        "chaosValue": 48224,
+        "count": 48,
+        "detailsId": "mageblood-4-flasks-heavy-belt",
+        "divineValue": 220.0,
+        "exaltedValue": 60310,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(30-60) to Dexterity"
+          },
+          {
+            "optional": false,
+            "text": "+(15-30)% to Fire Resistance"
+          },
+          {
+            "optional": false,
+            "text": "+(15-30)% to Cold Resistance"
+          },
+          {
+            "optional": false,
+            "text": "Magic Utility Flasks cannot be Used"
+          },
+          {
+            "optional": false,
+            "text": "Leftmost 4 Magic Utility Flasks constantly apply their Flask Effects to you"
+          },
+          {
+            "optional": false,
+            "text": "Magic Utility Flask Effects cannot be removed"
+          }
+        ],
+        "flavourText": "Rivers of power course through your veins.",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSW5qZWN0b3JCZWx0IiwidyI6MiwiaCI6MSwic2NhbGUiOjEsInJlbGljIjoxMH1d/af054170cd/InjectorBelt.png",
+        "id": 142076,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(25-42) to Strength"
+          }
+        ],
+        "itemClass": 10,
+        "itemType": "Belt",
+        "levelRequired": 44,
+        "listingCount": 48,
+        "name": "Mageblood",
+        "sparkLine": {
+          "data": [
+            null,
+            0,
+            62.23,
+            88.66,
+            174.4,
+            195.0,
+            203.8
+          ],
+          "totalChange": 203.8
+        },
+        "statIds": [
+          "additional_dexterity",
+          "additional_strength"
+        ],
+        "variant": "4 Flasks"
+      },
+      {
+        "baseType": "Heavy Belt",
+        "chaosValue": 38952,
+        "count": 21,
+        "detailsId": "mageblood-3-flasks-heavy-belt",
+        "divineValue": 177.7,
+        "exaltedValue": 48714,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(30-60) to Dexterity"
+          },
+          {
+            "optional": false,
+            "text": "+(15-25)% to Fire Resistance"
+          },
+          {
+            "optional": false,
+            "text": "+(15-25)% to Cold Resistance"
+          },
+          {
+            "optional": false,
+            "text": "Magic Utility Flasks cannot be Used"
+          },
+          {
+            "optional": false,
+            "text": "Leftmost 3 Magic Utility Flasks constantly apply their Flask Effects to you"
+          },
+          {
+            "optional": false,
+            "text": "Magic Utility Flask Effects cannot be removed"
+          }
+        ],
+        "flavourText": "Rivers of power course through your veins.",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSW5qZWN0b3JCZWx0IiwidyI6MiwiaCI6MSwic2NhbGUiOjF9XQ/21ec0269de/InjectorBelt.png",
+        "id": 142077,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(25-42) to Strength"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Belt",
+        "levelRequired": 48,
+        "listingCount": 21,
+        "name": "Mageblood",
+        "sparkLine": {
+          "data": [
+            null,
+            null,
+            0,
+            11.21,
+            41.59,
+            57.26,
+            93.12
+          ],
+          "totalChange": 93.12
+        },
+        "statIds": [
+          "additional_dexterity",
+          "additional_strength"
+        ],
+        "variant": "3 Flasks"
+      },
+      {
+        "baseType": "Topaz Ring",
+        "chaosValue": 37045,
+        "count": 19,
+        "detailsId": "nimis-topaz-ring",
+        "divineValue": 169.0,
+        "exaltedValue": 46329,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(30-60) to Dexterity"
+          },
+          {
+            "optional": false,
+            "text": "(25-35)% increased Projectile Damage"
+          },
+          {
+            "optional": false,
+            "text": "Projectiles Return to you"
+          },
+          {
+            "optional": false,
+            "text": "Projectiles are fired in random directions"
+          }
+        ],
+        "flavourText": "Too much of something is bad enough;\ntoo much of nothing is just as tough.",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvVWJlckVhdGVyb2ZXb3JsZHMiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/6dbfb1baea/UberEaterofWorlds.png",
+        "id": 100501,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(20-36)% to Lightning Resistance"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Ring",
+        "levelRequired": 48,
+        "listingCount": 19,
+        "name": "Nimis",
+        "sparkLine": {
+          "data": [
+            null,
+            0,
+            40.4,
+            59.42,
+            132.4,
+            212.5,
+            251.9
+          ],
+          "totalChange": 251.9
+        },
+        "statIds": [
+          "additional_dexterity"
+        ]
+      },
+      {
+        "baseType": "Leather Belt",
+        "chaosValue": 32003,
+        "count": 3,
+        "detailsId": "foulborn-headhunter-soul-eater-leather-belt",
+        "divineValue": 146.0,
+        "exaltedValue": 40024,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(40-63) to Strength"
+          },
+          {
+            "optional": false,
+            "text": "+(40-61) to Dexterity"
+          },
+          {
+            "optional": false,
+            "text": "+(50-60) to maximum Life"
+          },
+          {
+            "optional": false,
+            "text": "(21-30)% increased Damage with Hits against Rare monsters"
+          }
+        ],
+        "flavourText": "\"A man's soul rules from a cavern of bone, learns and\njudges through flesh-born windows. The heart is meat.\nThe head is where the Man is.\"\n- Lavianga, Advisor to Kaom",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSGVhZGh1bnRlciIsInciOjIsImgiOjEsInNjYWxlIjoxLCJtdXRhdGVkIjp0cnVlfV0/2a93cbdad2/Headhunter.png",
+        "id": 134994,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(25-40) to maximum Life"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Belt",
+        "levelRequired": 40,
+        "listingCount": 3,
+        "mutatedModifiers": [
+          {
+            "optional": false,
+            "text": "Eat a Soul when you Hit a Rare or Unique Enemy, no more than once every 0.25 seconds"
+          }
+        ],
+        "name": "Foulborn Headhunter",
+        "sparkLine": {
+          "data": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            null
+          ],
+          "totalChange": 0
+        },
+        "statIds": [
+          "additional_dexterity",
+          "additional_strength"
+        ],
+        "tradeInfo": [
+          {
+            "max": 0,
+            "min": 0,
+            "mod": "explicit.stat_2103621252"
+          }
+        ],
+        "variant": "Soul Eater"
+      },
+      {
+        "baseType": "Heavy Belt",
+        "chaosValue": 18084,
+        "count": 16,
+        "detailsId": "mageblood-2-flasks-heavy-belt",
+        "divineValue": 82.5,
+        "exaltedValue": 22616,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(30-52) to Dexterity"
+          },
+          {
+            "optional": false,
+            "text": "+(15-25)% to Fire Resistance"
+          },
+          {
+            "optional": false,
+            "text": "+(15-25)% to Cold Resistance"
+          },
+          {
+            "optional": false,
+            "text": "Magic Utility Flasks cannot be Used"
+          },
+          {
+            "optional": false,
+            "text": "Leftmost 2 Magic Utility Flasks constantly apply their Flask Effects to you"
+          },
+          {
+            "optional": false,
+            "text": "Magic Utility Flask Effects cannot be removed"
+          }
+        ],
+        "flavourText": "Rivers of power course through your veins.",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSW5qZWN0b3JCZWx0IiwidyI6MiwiaCI6MSwic2NhbGUiOjF9XQ/21ec0269de/InjectorBelt.png",
+        "id": 142078,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(25-42) to Strength"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Belt",
+        "levelRequired": 44,
+        "listingCount": 17,
+        "name": "Mageblood",
+        "sparkLine": {
+          "data": [
+            null,
+            null,
+            null,
+            0,
+            16.17,
+            46.58,
+            37.99
+          ],
+          "totalChange": 37.99
+        },
+        "statIds": [
+          "additional_dexterity",
+          "additional_strength"
+        ],
+        "variant": "2 Flasks"
+      },
+      {
+        "baseType": "Onyx Amulet",
+        "chaosValue": 9491,
+        "count": 5,
+        "detailsId": "stranglegasp-onyx-amulet",
+        "divineValue": 43.3,
+        "exaltedValue": 11870,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "Can have 3 additional Enchantment Modifiers"
+          }
+        ],
+        "flavourText": "Death's approach brings clarity.",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQW11bGV0cy9HaWZ0T2ZHbG9waCIsInciOjEsImgiOjEsInNjYWxlIjoxfV0/babc794c98/GiftOfGloph.png",
+        "id": 72129,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(10-19) to all Attributes"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Amulet",
+        "levelRequired": 52,
+        "listingCount": 5,
+        "name": "Stranglegasp",
+        "sparkLine": {
+          "data": [
+            null,
+            0,
+            132.2,
+            148.9,
+            null,
+            557.9,
+            676.6
+          ],
+          "totalChange": 676.6
+        }
+      },
+      {
+        "baseType": "Paua Amulet",
+        "chaosValue": 7891,
+        "count": 76,
+        "detailsId": "defiance-of-destiny-paua-amulet",
+        "divineValue": 36.0,
+        "exaltedValue": 9869,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(60-96) to maximum Life"
+          },
+          {
+            "optional": false,
+            "text": "+(10-40)% to Fire Resistance"
+          },
+          {
+            "optional": false,
+            "text": "+(10-48)% to Cold Resistance"
+          },
+          {
+            "optional": false,
+            "text": "+(10-48)% to Lightning Resistance"
+          },
+          {
+            "optional": false,
+            "text": "Gain (10-24)% of Missing Unreserved Life before being Hit by an Enemy"
+          }
+        ],
+        "flavourText": "The farmer was struck again and again, but he refused to stay down.\nAstonished, the raiding warlord ordered the man's family spared.",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQW11bGV0cy9IaW5la29yYUFtdWxldCIsInciOjEsImgiOjEsInNjYWxlIjoxfV0/d26f80f9c7/HinekoraAmulet.png",
+        "id": 107337,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "(20-36)% increased Mana Regeneration Rate"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Amulet",
+        "levelRequired": 49,
+        "listingCount": 76,
+        "name": "Defiance of Destiny",
+        "sparkLine": {
+          "data": [
+            null,
+            0,
+            104.5,
+            159.9,
+            292.3,
+            243.6,
+            227.9
+          ],
+          "totalChange": 227.9
+        }
+      },
+      {
+        "baseType": "Formless Ring",
+        "chaosValue": 6576,
+        "count": 95,
+        "detailsId": "lost-unity-formless-ring",
+        "divineValue": 30.0,
+        "exaltedValue": 8224,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "Grants Level 30 Herald of the Hive"
+          },
+          {
+            "optional": false,
+            "text": "+(10-24)% to all Elemental Resistances"
+          },
+          {
+            "optional": false,
+            "text": "+(23-44)% to Chaos Resistance"
+          }
+        ],
+        "flavourText": "All gates are closed.\nAll dreams are silenced.\nWhat could have been...",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvQnJlYWNobG9yZFJpbmdVbmlxdWVfQWxsQ29tYmluZWQiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/8b39060f10/BreachlordRingUnique_AllCombined.png",
+        "id": 129262,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "(5-8)% increased Global Defences"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Ring",
+        "levelRequired": 42,
+        "listingCount": 95,
+        "name": "Lost Unity",
+        "sparkLine": {
+          "data": [
+            0,
+            26.0,
+            23.09,
+            26.77,
+            59.83,
+            196.7,
+            216.7
+          ],
+          "totalChange": 216.7
+        },
+        "statIds": [
+          "base_resist_all_elements_%"
+        ]
+      },
+      {
+        "baseType": "Fugitive Ring",
+        "chaosValue": 6181,
+        "count": 68,
+        "detailsId": "the-sundered-will-fugitive-ring",
+        "divineValue": 28.2,
+        "exaltedValue": 7731,
+        "explicitModifiers": [
+          {
+            "optional": false,
+            "text": "+(7-13) to all Attributes"
+          },
+          {
+            "optional": false,
+            "text": "Adds (7-13) to (17-27) Chaos Damage"
+          },
+          {
+            "optional": false,
+            "text": "+(13-29)% to Chaos Resistance"
+          },
+          {
+            "optional": false,
+            "text": "(20-30)% increased Area of Effect of Aura Skills"
+          },
+          {
+            "optional": false,
+            "text": "(20-35)% reduced Reservation Efficiency of Skills"
+          },
+          {
+            "optional": false,
+            "text": "Increases and Reductions to Chaos Damage also apply to Effect of\nAuras from Chaos Skills at (10-15)% of their value, up to a maximum of 150%"
+          }
+        ],
+        "flavourText": "They dream no longer, strive no longer,\nfeel no longer. They dream only of\ncontinuing to dream, and know not why.",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvQnJlYWNobG9yZFJpbmdVbmlxdWVfQ2hheXVsYSIsInciOjEsImgiOjEsInNjYWxlIjoxfV0/b99a4b6b9a/BreachlordRingUnique_Chayula.png",
+        "id": 129149,
+        "implicitModifiers": [
+          {
+            "optional": false,
+            "text": "+2% to maximum Chaos Resistance"
+          },
+          {
+            "optional": false,
+            "text": "Cannot roll Modifiers of Non-Chaos Damage Types"
+          }
+        ],
+        "itemClass": 3,
+        "itemType": "Ring",
+        "levelRequired": 42,
+        "listingCount": 68,
+        "name": "The Sundered Will",
+        "sparkLine": {
+          "data": [
+            null,
+            0,
+            -1.19,
+            1.51,
+            28.92,
+            143.2,
+            155.2
+          ],
+          "totalChange": 155.2
+        },
+        "statIds": [
+          "base_reservation_efficiency_+%"
+        ]
+      }
+    ]
+  },
+  "headers": [
+    [
+      "date",
+      "Fri, 20 Nov 2026 00:42:20 GMT"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "cache-control",
+      "public, max-age=1800, stale-while-revalidate=300, stale-if-error=86400"
+    ],
+    [
+      "etag",
+      "W/3ef1805030999750f75e0bfbcf570e2e"
+    ],
+    [
+      "age",
+      "1331"
+    ]
+  ],
+  "note": "Trimmed to the first 15 of 363 lines.",
+  "recorded_at": "2026-11-20T00:42:18Z",
+  "request": {
+    "method": "GET",
+    "url": "https://poe.ninja/poe1/api/economy/stash/current/item/overview?league=Covens&type=UniqueAccessory"
+  },
+  "status": 200
+}

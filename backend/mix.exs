@@ -24,13 +24,16 @@ defmodule Quicksilver.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
-  # No HTTP client library here on purpose: external API access is owned by the
-  # integrations lane (CLAUDE.md rule 3, docs/DATA_SOURCES.md). They add theirs.
+  # External API access is owned by the integrations lane (CLAUDE.md rule 3,
+  # docs/DATA_SOURCES.md). Its only HTTP client is `mint`, used solely by
+  # `Quicksilver.Integrations.HTTP`; never call it from anywhere else.
   defp deps do
     [
       {:bandit, "~> 1.6"},
       {:websock_adapter, "~> 0.5"},
       {:jason, "~> 1.4"},
+      # HTTP client for Quicksilver.Integrations (TLS via OTP's cacerts_get/0).
+      {:mint, "~> 1.6"},
       # Test-only WebSocket client used to drive the gateway in tests.
       {:mint_web_socket, "~> 1.0", only: :test}
     ]

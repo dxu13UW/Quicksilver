@@ -10,9 +10,11 @@ defmodule Quicksilver.Test.WSClient do
 
   use GenServer
 
-  @spec connect(:inet.port_number(), String.t()) :: {:ok, pid()} | {:error, term()}
-  def connect(port, path \\ "/ws") do
-    GenServer.start(__MODULE__, {port, path, self()})
+  @doc "Opens a connection; `headers` are extra request headers for the upgrade."
+  @spec connect(:inet.port_number(), String.t(), Mint.Types.headers()) ::
+          {:ok, pid()} | {:error, term()}
+  def connect(port, path \\ "/ws", headers \\ []) do
+    GenServer.start(__MODULE__, {port, path, headers, self()})
   end
 
   def send_text(client, text), do: GenServer.call(client, {:send, {:text, text}})
@@ -27,9 +29,9 @@ defmodule Quicksilver.Test.WSClient do
   end
 
   @impl true
-  def init({port, path, owner}) do
+  def init({port, path, headers, owner}) do
     with {:ok, conn} <- Mint.HTTP.connect(:http, "127.0.0.1", port, protocols: [:http1]),
-         {:ok, conn, ref} <- Mint.WebSocket.upgrade(:ws, conn, path, []),
+         {:ok, conn, ref} <- Mint.WebSocket.upgrade(:ws, conn, path, headers),
          {:ok, conn, status, headers} <- await_upgrade(conn, ref, nil, []),
          {:ok, conn, websocket} <- Mint.WebSocket.new(conn, ref, status, headers) do
       {:ok, %{conn: conn, ref: ref, websocket: websocket, owner: owner}}

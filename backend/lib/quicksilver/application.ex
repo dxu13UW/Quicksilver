@@ -56,7 +56,7 @@ defmodule Quicksilver.Application do
       [
         Quicksilver.Settings,
         Quicksilver.Health,
-        # integrations: add the data-source supervisor here (see moduledoc).
+        Quicksilver.Integrations.Supervisor,
         {Endpoint, port: launch.port, token: launch.token}
       ] ++ stdin_watcher(launch)
 
