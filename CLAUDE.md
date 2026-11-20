@@ -40,6 +40,7 @@ Update this line when the phase changes (see `docs/PLAN.md`).
 - **Pricing:** poe.ninja first; the trade API only for rares and unmatched items, on demand, behind a kill switch (ADR-004).
 - **Trade and session events:** the backend tails the game's `Client.txt` log file.
 - **Distribution:** Windows installer on GitHub Releases (ADR-003, not final).
+- **Dev environment:** native Windows in `C:\dev\Quicksilver` (ADR-001). Claude Code's shell is Git Bash, so use Unix-style commands; run MSVC builds through `cmd /d /c` after `vcvars64.bat`.
 
 ## Where to look first
 `docs/PLAN.md` → current week's work items → `LOG.md` (latest entry) → the doc for your area.

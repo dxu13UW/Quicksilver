@@ -145,3 +145,28 @@ Newest entries at the bottom. Every agent session ends with an entry. This log i
     3. Security proposal: reject WebSocket upgrades that carry an `Origin` header, so a web page in the user's browser can't connect to `ws://127.0.0.1:47474` (matters in dev, where there's no token). Check first that QWebSocket sends no Origin by default. This would be a PROTOCOL change, so it's not implemented.
     4. Consider documenting `QUICKSILVER_EXIT_ON_STDIN_EOF` as dev-only in "Launch and lifetime", or say it's out of scope.
 - Next step: integrations I1/I2, then the backend Phase C Dashboard handler (`leagues.list`, `league.set`, `rates.*`), with rates pushes via a subscriber registry.
+
+### 2026-11-19: Moving development from WSL to native Windows (handoff)
+- Who: me + Claude Code (WSL session; the last one in WSL)
+- Goal: review B1/B2, then prepare the repo to move from WSL (Debian) to native Windows before the codebase grows.
+- Done:
+  - Reviewed and committed B1/B2 (`3fea626`). `mix test` re-run by the main session: 67 tests, 0 failures, 1 excluded (e2e). Format is clean, there are no HTTP clients, and the listener is loopback-only.
+  - Settled the backend agent's PROTOCOL questions in PROTOCOL.md: required hello fields, check order, close code 1008, frames before hello → `unauthorized`, second hello → `bad_request`, id/ts rules, stdout/stderr, and the dev-only `QUICKSILVER_EXIT_ON_STDIN_EOF`. **Added an Origin check** (upgrades that carry `Origin` get 403).
+  - Added `.gitattributes` (LF everywhere; CRLF for .bat/.cmd/.ps1). Rewrote the ADR-001 dev environment for native Windows, and added a dev-environment line to CLAUDE.md.
+- Decisions: develop natively on Windows (ADR-001, Obsidian D21). The repo is at `C:\dev\Quicksilver`.
+- Problems / surprises: Windows already had Git 2.46, Erlang/OTP 27 and Elixir 1.18.0. Still missing on 2026-11-19: VS 2022 Build Tools and Qt 6.8 (with Qt WebSockets).
+- Handoffs:
+  - **Backend (Phase C):** implement the Origin check (403), then the dashboard routes (TODOs in `gateway/routes.ex` and `gateway/socket.ex`).
+  - **Frontend (F1):**
+    - Create `QWebSocket` with an empty origin, and check it sends no `Origin` header.
+    - Drain the backend's stdout **and** stderr.
+    - Put the backend in a Job Object with kill-on-close.
+  - **B6 checks, now testable early on Windows:**
+    - Does stdin EOF stop the backend (`mix run` from Git Bash and PowerShell, and later a release)?
+    - Does `File.rename` replace an existing `settings.json`?
+- Next step, **first thing in the Windows session**:
+  1. Clone, and set the repo identity (`git config user.name dxu13UW`, `user.email 252822825+dxu13UW@users.noreply.github.com`).
+  2. `cd backend && mix deps.get && mix test`, plus `mix test --include e2e`. All must pass on Windows. Fix anything Windows-specific first.
+  3. Smoke-test by hand: run `mix run --no-halt` in one terminal, and check that the READY line appears and Ctrl+C / closing stdin stops it.
+  4. Continue Week 2 with integrations I1/I2 (poe.ninja + trade league clients, rate limiter, cache, Health reporting). Then backend Phase C, Q1, and F1/F2 once Qt is installed.
+  5. Keep appending every design decision to the Obsidian note `C:\Users\turtl\Documents\Obsidian\TCSS490 Generative AI and Software Development\Artifact 5.md`, as the next D-number.

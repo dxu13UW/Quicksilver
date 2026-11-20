@@ -23,14 +23,19 @@ Qt 6 with CMake, using **Qt Widgets** (not QML). Decided 2026-11-15.
 - The installer must bundle the Qt runtime (windeployqt).
 - Global hotkeys need a small Windows-specific piece, since Qt has no cross-platform global hotkey API.
 
-**Build setup (decided 2026-11-19)**
-Development happens in WSL (Debian). Qt 6.8 LTS (MSVC 2022 64-bit, plus the Qt WebSockets module) and the VS 2022 Build Tools are installed on Windows.
-- **Source of truth:** the repo stays on the WSL disk. All edits and git happen there, and Elixir stays fast.
-- **Build from a Windows-side copy:** a build script copies `frontend/` and `shared/` to a Windows folder (e.g. `C:\dev\quicksilver-build\`). It then runs the MSVC/CMake build there through `cmd.exe /d /c` (`/d` skips cmd's AutoRun banner) after `vcvars64.bat`.
-  - The reason: MSVC and `cmd.exe` don't work from `\\wsl.localhost\…` paths, and builds across that boundary are slow.
-  - **Never edit the Windows copy.** Every build overwrites it.
-- **Dev runtime:** the backend runs in WSL on port 47474, and `Quicksilver.exe` runs on Windows. WSL uses `networkingMode=mirrored`, so both sides share `127.0.0.1`.
+**Development environment (decided 2026-11-19; replaces the same-day WSL setup)**
+Everything is developed **natively on Windows**, in `C:\dev\Quicksilver`.
+- **Toolchain:**
+  - Git for Windows
+  - Erlang/OTP 27 + Elixir 1.18
+  - VS 2022 Build Tools ("Desktop development with C++")
+  - Qt 6.8 LTS (MSVC 2022 64-bit, plus the **Qt WebSockets** module)
+  - CMake
+  - Claude Code for Windows. Its shell tool is Git Bash.
+- **Why native:** everything Quicksilver touches at runtime is on Windows: the game, Client.txt, the overlay, hotkeys, Job Objects, the installer and the backend release (B6). Developing natively makes every day's test a real end-to-end run, and Windows-only problems show up early instead of in Week 4.
+- **Frontend builds:** run CMake with MSVC from a shell that has called `vcvars64.bat`. From Git Bash or scripts, use `cmd /d /c "…vcvars64.bat && cmake …"` (`/d` skips cmd's AutoRun banner).
+- **Line endings:** `.gitattributes` keeps LF in every checkout. `.bat`/`.cmd`/`.ps1` files use CRLF.
 - **Rejected:**
-  - Moving the repo to `C:\` and using it via `/mnt/c`: Elixir and git get several times slower.
-  - Linux Qt in WSL: the overlay, global hotkeys and Job Objects are Windows-only.
-- **Later (B6):** the installer needs a Windows build of the Elixir release, so Erlang/Elixir get installed on Windows in Week 4.
+  - **WSL repo + Windows-side build copy** (the first plan, 2026-11-19): two environments, a copy step, and backend startup only tested on Windows in Week 4.
+  - **Repo on `C:\` used from WSL via `/mnt/c`:** slow, and WSL and Windows `mix` would clash over `_build`.
+  - **Linux Qt in WSL:** the overlay, global hotkeys and Job Objects are Windows-only.
