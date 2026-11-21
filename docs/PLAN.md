@@ -17,20 +17,20 @@ Status key: ☐ not started · ◐ in progress · ☑ done · ✗ dropped
 - ☑ Architecture, protocol draft, data sources, compliance docs
 - ☑ Resolve items in `OPEN_QUESTIONS.md` that block Week 2
 - ☐ Collect 20+ sample item texts (Ctrl+C in game) into `shared/samples/`. These are test fixtures, not code.
-- ☐ Install toolchains: Elixir/Erlang, Qt 6 + CMake + MSVC, Git
+- ☑ Install toolchains: Elixir/Erlang, Qt 6 + CMake + MSVC, Git (Qt 6.8.3 + VS 2022 Build Tools on 2026-11-19)
 - ◐ Portfolio card placeholder updated, link submitted (card updated 2026-11-15; submit link)
 
 ## Week 2 (Nov 16–22): Walking skeleton + command center shell
 Goal: both halves run and talk to each other, and the dashboard shows real data.
 
-- ☐ **B1** Elixir app boots under a supervisor and serves a WebSocket on localhost
-- ☐ **B2** Health/heartbeat messages per PROTOCOL.md
-- ☐ **I1** poe.ninja client with cache and refresh schedule (currency + one item category)
-- ☐ **I2** League list from the official API; league selection stored in backend config
-- ☐ **F1** Qt app with command center window; connects to backend and shows connection status
-- ☐ **F2** Dashboard: currency rates table, league selector, backend health panel
+- ☑ **B1** Elixir app boots under a supervisor and serves a WebSocket on localhost
+- ☑ **B2** Health/heartbeat messages per PROTOCOL.md
+- ☑ **I1** poe.ninja client with cache and refresh schedule (currency + one item category)
+- ☑ **I2** League list from the official API; league selection stored in backend config
+- ☑ **F1** Qt app with command center window; connects to backend and shows connection status
+- ◐ **F2** Dashboard: currency rates table, league selector, backend health panel
 - ☐ **Q1** QA test plan for protocol messages; first backend tests
-- ☐ Log entries and portfolio update
+- ◐ Log entries and portfolio update
 
 ## Week 3 (Nov 23–29): Item price check (Thanksgiving week, so plan light)
 - ☐ **F3** Overlay window: transparent, always-on-top, click-through except on its own panel

@@ -231,3 +231,81 @@ Newest entries at the bottom. Every agent session ends with an entry. This log i
   - **Frontend (F1):** start the backend with QProcess on `erl.exe`/the release executable, or through `cmd /d /c`; never a plain `.bat` launch (AutoRun). Confirm that QWebSocket sends no `Origin` header, or the backend returns 403.
   - **Backend (Phase C):** wire `leagues.list`, `league.set` and `rates.*` to `Quicksilver.Integrations` (see the I1/I2 entry).
 - Next step: the owner installs VS 2022 Build Tools (C++ workload) and Qt 6.8 (MSVC 2022 64-bit + Qt WebSockets). Then a toolchain smoke build, F1, backend Phase C, F2, and Q1.
+
+### 2026-11-19: F1 Qt client: command center, backend launch, connection status
+- Who: frontend agent
+- Goal: PLAN F1. `Quicksilver.exe` starts the backend, connects per PROTOCOL v1, and shows the connection status (CON-1, CON-2, CON-4).
+- Done:
+  - CMake project in `frontend/`:
+    - `quicksilver_core` static lib (no widgets), the `Quicksilver` WIN32 exe, and Qt Test exes under `tests/`.
+    - `frontend/build.bat` does configure + build + ctest in one command (`clean`, `notest` args). A post-build `windeployqt` makes the exe run by double-click. How to run: `frontend/CLAUDE.md`.
+  - Classes (`src/core` unless noted):
+    - `protocol_codec`: pure functions for the READY line, envelope encode/decode, token, hello.
+    - `ProtocolClient`: one QWebSocket with an empty origin, so no `Origin` header. Sends hello, matches replies to `c-<n>` ids (order doesn't matter), and emits push/health/error-push signals. A handshake `error` followed by a 1008 close becomes `handshakeFailed`.
+    - `BackendProcess`:
+      - Uses a token from the OS crypto RNG, `QUICKSILVER_PORT=0`, and strips `QUICKSILVER_EXIT_ON_STDIN_EOF`.
+      - Waits up to 20 s for READY; other stdout lines go to the log.
+      - Drains stderr into `%LOCALAPPDATA%\Quicksilver\logs\backend.log` and a 500-line ring.
+      - To stop: closes stdin, waits 3 s, then ends the job.
+    - `BackendConnection`: owns both and the retry policy; it's the UI's status source.
+    - `BackendLocator`: picks the backend command.
+    - `app_log`: writes `client.log`.
+    - `src/platform/`: `ProcessJob` and `ChildStdin` (Windows), with stubs for other OSes.
+    - `src/ui/CommandCenterWindow`: status card (dot, headline, detail, Restart button), a raw health tree, and the backend log tail. Help → About carries the GGG notice.
+  - Dev launch: `erl.exe -noshell -elixir_root <Elixir>\lib -pa <Elixir>\lib\elixir\ebin -s elixir start_cli -extra <Elixir>\bin\mix run --no-halt`, cwd `backend/`, erl and elixir found on PATH. Overrides: `QUICKSILVER_BACKEND_DIR`, `QUICKSILVER_ERL`, `QUICKSILVER_ELIXIR_ROOT`. Release hook: `QUICKSILVER_BACKEND_EXE`/`_ARGS`/`_DIR`; `.bat`/`.cmd` are refused. `QUICKSILVER_READY_TIMEOUT_S` overrides the 20 s wait.
+  - Tests: 5 ctest executables, 81 Qt Test cases, all passing from a clean `build/`:
+    - codec 42
+    - client against a fake server 16, including a raw-TCP check that the upgrade request has no `Origin`
+    - locator 11
+    - process job 7
+    - e2e against the real backend 5: connect + health + `unknown_type`; a killed backend is restarted and reconnected in 1.9 s (0.14 s after its READY); wrong token → `unauthorized`; protocol 2 → `protocol_mismatch` + `expected: 1` + close 1008; an `Origin` header → 403; stdin shutdown in about 1.06 s.
+  - Manual run of `Quicksilver.exe`: connected 1.0 s after launch (from `client.log`).
+    - Closing the window: the backend logged "stdin closed; shutting down" and exited with code 0; no `erl.exe` was left.
+    - `taskkill /F` on Quicksilver.exe: the Job Object ended `erl.exe` immediately.
+- Decisions:
+  - Retry policy. REQUIREMENTS CON-4 gives the target, not the mechanism, so this is my choice:
+    - Socket lost while the backend still runs: reconnect after 0.5/1/2/4/5 s; after 5 failures, restart the backend.
+    - Backend exited on its own: restart after 1/2/4/8/15 s; give up after 5 restarts that never reach connected.
+    - No automatic retry for a READY timeout, a start failure, `protocol_mismatch`, `unauthorized` or `bad_request`. These show Failed with a Restart button.
+    - A welcome resets the counters.
+  - A READY line with another `protocol_version` is reported at once as the "Reinstall Quicksilver" mismatch, not after a 20 s timeout. The parser accepts any version; only 1 is used.
+  - Job Object without a race: the child is created with `CREATE_SUSPENDED` (QProcess CreateProcess modifier), assigned to the job, then resumed with a Toolhelp thread snapshot. This uses only public Qt API.
+  - `welcome.league` null shows as "not chosen yet".
+- Problems / surprises:
+  - **erl.exe never reads QProcess's stdin on Windows.** QProcess gives the child a named pipe; `erl -noshell` gets neither the data nor EOF from it, while `sort.exe` reads it fine. Erlang ports, and cmd, use anonymous pipes, which is why the backend e2e test passed. At first, quitting took 3 s and the backend exited with code 1 because the job killed it. Fix: `platform::ChildStdin` gives the child an anonymous `CreatePipe` read end through the same CreateProcess modifier; our write end is never inheritable. Graceful exit now takes about 1 s with exit code 0. A test asserts the shutdown goes through stdin. **B6 should keep this in mind:** any launcher must give the release an anonymous pipe for stdin.
+  - `QStandardPaths::findExecutable(name, {})` searches this process's PATH when the list is empty, so `BackendLocator` guards against that.
+  - Qt Test's console output can vanish under Git Bash; use `-o file,txt`.
+  - Another agent changed `backend/` and PROTOCOL.md (Phase C) during this session. F1 already matches the new rules: replies are matched by id, and `serverError` now passes the full payload so F2 can read the rates error push's `topic`/`league`.
+- Handoffs:
+  - **backend (B6):** stdin EOF needs an anonymous pipe on Windows (see above). If the release entry point is only `bin\quicksilver.bat`, the client can't launch it (cmd is never allowed in between); provide an .exe entry point (e.g. `erl.exe` from the release's `erts-*/bin` with the boot args), and the client sets `QUICKSILVER_BACKEND_EXE`/`_ARGS`.
+  - **qa (Q1):** the frontend tests cite CON-1/2/3/4, NFR-SEC-2 and NFR-MNT-2. `ctest -LE integration` skips the real-backend test.
+  - **owner:** add to the Obsidian decision log: the retry policy, `ChildStdin` (anonymous-pipe stdin), and CREATE_SUSPENDED + job assignment.
+- Next step: F2 (rates table, league selector, health panel), using `BackendConnection::client()->request(...)` and `pushReceived`, now that backend Phase C is landing.
+
+### 2026-11-19: Qt toolchain, backend Phase C, two PROTOCOL decisions
+- Who: me + Claude Code (main session; backend agent for Phase C)
+- Goal: install and verify the Qt toolchain, build the dashboard routes, and review F1 (its own entry is above).
+- Done:
+  - Installed Qt 6.8.3 (MSVC 2022 64-bit + Qt WebSockets, 2.3 GB custom install) and VS 2022 Build Tools (MSVC 19.44, plus the CMake and Ninja that ship with it). A smoke build and run against the real backend confirmed a default `QWebSocket` sends **no Origin header**.
+  - Fixed this machine's cmd AutoRun, which broke `vcvars64.bat`: VsDevCmd's `for /f` subshells ran `alias.cmd`, which printed a banner and changed directory. `C:\Users\turtl\alias.cmd` now returns at once for non-interactive cmd (`/c`); the original is in `alias.cmd.bak`. Gotcha: substring substitution on `CMDCMDLINE` changes the real command line in place, so copy it first.
+  - Backend Phase C (backend agent): `leagues.list`, `league.set`, `rates.subscribe` and `rates.unsubscribe` in `Gateway.Handlers.Dashboard`, through a `Gateway.DataSource` interface (production calls `Quicksilver.Integrations`).
+    - Slow upstream calls run in `Quicksilver.Gateway.TaskSupervisor` tasks, so the socket never blocks.
+    - Pushes that arrive while a reply is pending are held back, so the reply always comes first.
+    - The application now has 5 top-level processes.
+  - Reviewed F1 (frontend agent). A clean `build.bat` passes all 5 ctest programs (81 cases, including the real-backend e2e). There is no external HTTP; the only `OpenProcess` call is on our own backend child, to add it to the Job Object.
+  - Backend: 155 tests, 0 failures (including e2e). PLAN: B1, B2, I1, I2, F1 and the toolchains are ☑; F2 is ◐.
+- Decisions (PROTOCOL.md updated first; Obsidian D26):
+  - `welcome.league` is the **active** league (= `leagues.result.current`), not the saved setting. A data source that doesn't answer can't hold up the handshake: after 500 ms, `null` is sent.
+  - **Rates error push:** when a subscribed client's league changes and there are no rates for it, the server pushes error `upstream_unavailable` with id `null` and `{"topic": "rates", "league": ...}`. It isn't repeated for the same league, and it's dropped if the league changes again before the check finishes.
+  - Clarified: `league.set` with no league list available → `upstream_unavailable`. Replies may arrive out of order (match by id). Error `message` text is display-only.
+- Problems / surprises:
+  - Running vcvars from Git Bash with inline quoting fails; use a `.bat` file via `cmd /d /c` (`frontend/build.bat`).
+  - From the F1 entry: on Windows, `erl.exe` never sees EOF on QProcess's stdin pipe. F1 gives it an anonymous pipe instead (`child_stdin_win.cpp`).
+- Handoffs:
+  - **Frontend (F2):**
+    - Build the dashboard on `connection->client()`: a rates table from `rates.update`, and a league selector (`leagues.list` / `league.set`).
+    - Handle the rates error push (`serverError` with `topic == "rates"`).
+    - The health panel replaces F1's raw table.
+  - **Backend (B6):** the release needs an `.exe` entry point (no `.bat` through cmd), and its stdin must be an anonymous pipe (see the F1 entry).
+  - **QA (Q1):** a protocol test plan covering the whole v1 surface. Tests already cite CON-1–4, DASH-1/2, NFR-REL-3, NFR-SEC-2 and NFR-MNT-2.
+- Next step: F2 (frontend), Q1 (qa), then the Week 2 portfolio update.
