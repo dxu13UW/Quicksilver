@@ -21,6 +21,12 @@ defmodule Quicksilver.Gateway.Socket do
   Each connection is its own process under Bandit's connection supervisor, so a
   crash here only drops this one client. Handler exceptions are caught and
   answered with `internal`, so they don't even drop the connection.
+
+  Slow work (anything that may wait on a data source) runs in tasks under the
+  gateway's `Task.Supervisor` (`Quicksilver.Gateway.Handler` `{:async, ...}`),
+  so this process never blocks: health pushes, other requests and rates pushes
+  keep flowing while a request waits for the network. In-flight jobs are
+  tracked in `conn.tasks` and killed when the connection ends.
   """
 
   @behaviour WebSock
@@ -31,6 +37,7 @@ defmodule Quicksilver.Gateway.Socket do
   alias Quicksilver.{Health, Settings}
 
   @policy_violation 1008
+  @welcome_league_wait_ms 500
 
   @impl WebSock
   def init(opts) do
@@ -95,15 +102,42 @@ defmodule Quicksilver.Gateway.Socket do
     end
   end
 
-  # TODO(Phase C): rates.update pushes. The rates cache will notify subscribed
-  # connections with a process message; handle it here and forward to the
-  # Dashboard handler, which owns the subscription state in conn.assigns.
+  # An async handler job finished: Task.Supervisor.async_nolink replies with
+  # {monitor_ref, value}. Drop the monitor (and a DOWN that may already be queued).
+  def handle_info({ref, value}, %Connection{tasks: tasks} = conn)
+      when is_reference(ref) and is_map_key(tasks, ref) do
+    Process.demonitor(ref, [:flush])
+    finish_task(ref, {:ok, value}, conn)
+  end
+
+  # An async handler job crashed (or was killed) before replying.
+  def handle_info({:DOWN, ref, :process, _pid, reason}, %Connection{tasks: tasks} = conn)
+      when is_map_key(tasks, ref) do
+    finish_task(ref, {:exit, reason}, conn)
+  end
+
+  # Data-source broadcasts (e.g. rates refreshed) go to the handler that owns
+  # the subscription; Routes.info_handler/1 names it.
+  def handle_info(message, %Connection{phase: :ready} = conn) do
+    case Routes.info_handler(message) do
+      {:ok, handler} -> run_info(handler, message, conn)
+      :error -> {:ok, conn}
+    end
+  end
 
   # A stale :hello_timeout after the handshake, or anything unexpected.
   def handle_info(_message, conn), do: {:ok, conn}
 
+  # Subscriptions (Registry entries) disappear on their own when this process
+  # exits. Async jobs still in flight are killed: their answers have nowhere to
+  # go. (If this process is killed outright, terminate/2 doesn't run; the jobs
+  # then end by themselves within :upstream_timeout_ms and their replies are
+  # dropped by the VM.)
   @impl WebSock
-  def terminate(_reason, _conn), do: :ok
+  def terminate(_reason, conn) do
+    for {_ref, {pid, _handler, _type, _id}} <- conn.tasks, do: Process.exit(pid, :kill)
+    :ok
+  end
 
   # --- Handshake ------------------------------------------------------------------
 
@@ -130,17 +164,36 @@ defmodule Quicksilver.Gateway.Socket do
     %{
       server_version: Quicksilver.version(),
       protocol_version: Quicksilver.protocol_version(),
-      league: saved_league(settings),
+      league: active_league(conn),
       features: %{trade_api_enabled: setting(settings, "trade_api_enabled", true) != false},
       health_interval_s: interval_seconds(conn.opts.health_interval_ms)
     }
   end
 
-  defp saved_league(settings) do
-    case setting(settings, "league", nil) do
-      league when is_binary(league) and league != "" -> league
-      _ -> nil
+  # PROTOCOL `welcome.league`: the active league (same as leagues.result.current).
+  # The data source answers from memory (it never waits on the network for
+  # this), but the call is still bounded so a busy or restarting server can't
+  # delay the handshake: after @welcome_league_wait_ms the welcome goes out with
+  # null, which PROTOCOL allows ("no league yet").
+  defp active_league(conn) do
+    {source, arg} = conn.opts.data_source
+    task = Task.Supervisor.async_nolink(conn.opts.task_sup, fn -> source.current_league(arg) end)
+
+    case Task.yield(task, @welcome_league_wait_ms) || Task.shutdown(task, :brutal_kill) do
+      {:ok, league} when is_binary(league) and league != "" ->
+        league
+
+      {:ok, _none} ->
+        nil
+
+      other ->
+        Logger.warning("gateway: active league unavailable for welcome: #{inspect(other)}")
+        nil
     end
+  catch
+    :exit, reason ->
+      Logger.warning("gateway: active league unavailable for welcome: #{inspect(reason)}")
+      nil
   end
 
   # If the settings process is restarting, answer with defaults rather than drop
@@ -174,12 +227,79 @@ defmodule Quicksilver.Gateway.Socket do
   end
 
   defp run_handler(handler, type, id, payload, conn) do
-    case handler.handle_message(type, payload, conn) do
+    guarded(type, id, conn, fn ->
+      case handler.handle_message(type, payload, conn) do
+        {:async, fun, %Connection{} = conn} when is_function(fun, 0) ->
+          start_task(handler, type, id, fun, conn)
+
+        result ->
+          send_result(handler, result, id)
+      end
+    end)
+  end
+
+  # Runs `fun` in a task so a slow data source never blocks this process: the
+  # mailbox keeps being served (health ticks, other requests, pushes) while the
+  # task waits. The result comes back as a process message (handle_info above).
+  # Tasks run under the gateway's Task.Supervisor (async_nolink), so a crashing
+  # job is reported to us as :DOWN instead of taking the connection down.
+  defp start_task(handler, type, id, fun, conn) do
+    task = Task.Supervisor.async_nolink(conn.opts.task_sup, fun)
+    {:ok, %{conn | tasks: Map.put(conn.tasks, task.ref, {task.pid, handler, type, id})}}
+  catch
+    # The task supervisor is restarting: let the handler settle its state as if
+    # the job had crashed.
+    :exit, reason ->
+      send_result(handler, handler.handle_async(type, {:exit, reason}, conn), id)
+  end
+
+  defp finish_task(ref, outcome, conn) do
+    {{_pid, handler, type, id}, tasks} = Map.pop(conn.tasks, ref)
+    conn = %{conn | tasks: tasks}
+
+    guarded(type, id, conn, fn ->
+      send_result(handler, handler.handle_async(type, outcome, conn), id)
+    end)
+  end
+
+  defp run_info(handler, message, conn) do
+    case handler.handle_info(message, conn) do
+      # A job not tied to a request: its result has id null.
+      {:async, type, fun, %Connection{} = conn} when is_function(fun, 0) ->
+        start_task(handler, type, nil, fun, conn)
+
+      {:push, [], %Connection{} = conn} ->
+        {:ok, conn}
+
+      {:push, pushes, %Connection{} = conn} ->
+        {:push, Enum.map(pushes, fn {t, p} -> {:text, Envelope.encode(t, nil, p)} end), conn}
+
+      {:ok, %Connection{} = conn} ->
+        {:ok, conn}
+    end
+  rescue
+    exception ->
+      Logger.error(
+        "gateway: #{inspect(handler)} failed on a process message: " <>
+          Exception.format(:error, exception, __STACKTRACE__)
+      )
+
+      {:ok, conn}
+  end
+
+  defp send_result(handler, result, id) do
+    case result do
       {:reply, reply_type, reply_payload, %Connection{} = conn} ->
         {:push, [{:text, Envelope.encode(reply_type, id, reply_payload)}], conn}
 
       {:error, code, message, %Connection{} = conn} ->
         push_error(code, message, id, conn)
+
+      {:frames, [], %Connection{} = conn} ->
+        {:ok, conn}
+
+      {:frames, frames, %Connection{} = conn} when is_list(frames) ->
+        {:push, Enum.map(frames, &encode_frame(&1, id)), conn}
 
       {:noreply, %Connection{} = conn} ->
         {:ok, conn}
@@ -187,6 +307,20 @@ defmodule Quicksilver.Gateway.Socket do
       other ->
         raise "handler #{inspect(handler)} returned an invalid result: #{inspect(other)}"
     end
+  end
+
+  defp encode_frame({:reply, type, payload}, id), do: {:text, Envelope.encode(type, id, payload)}
+  defp encode_frame({:error, code, message}, id), do: {:text, Envelope.error(code, message, id)}
+
+  defp encode_frame({:push_error, code, message, extra}, _id),
+    do: {:text, Envelope.error(code, message, nil, extra)}
+
+  defp encode_frame({:push, type, payload}, _id), do: {:text, Envelope.encode(type, nil, payload)}
+
+  # A bug in a handler is answered with `internal` and the connection stays
+  # open. Exits (a server the handler called is down) are treated the same.
+  defp guarded(type, id, conn, fun) do
+    fun.()
   rescue
     exception ->
       # NFR: bug details go to the backend log, never to the client.
@@ -195,6 +329,10 @@ defmodule Quicksilver.Gateway.Socket do
           Exception.format(:error, exception, __STACKTRACE__)
       )
 
+      push_error(:internal, "Something went wrong in the backend.", id, conn)
+  catch
+    :exit, reason ->
+      Logger.error("gateway: handler for #{inspect(type)} exited: #{inspect(reason)}")
       push_error(:internal, "Something went wrong in the backend.", id, conn)
   end
 

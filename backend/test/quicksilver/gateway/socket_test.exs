@@ -24,7 +24,9 @@ defmodule Quicksilver.Gateway.SocketTest do
       assert health["id"] == nil
     end
 
-    test "welcome carries the saved league and kill-switch setting", ctx do
+    # The case's data source reports the saved league as the active one; the
+    # active-league rules themselves are covered in dashboard_test.exs.
+    test "welcome carries the active league and kill-switch setting", ctx do
       :ok = Quicksilver.Settings.put(ctx.settings, "league", "Covens")
       :ok = Quicksilver.Settings.put(ctx.settings, "trade_api_enabled", false)
 
@@ -183,14 +185,22 @@ defmodule Quicksilver.Gateway.SocketTest do
       assert_still_open(ctx.client)
     end
 
-    # Phase C will route these; until then they must answer unknown_type.
-    test "dashboard types answer unknown_type for now", ctx do
-      for type <- ~w(leagues.list league.set rates.subscribe rates.unsubscribe) do
-        WSClient.send_json(ctx.client, %{"type" => type, "id" => "c-#{type}", "payload" => %{}})
-        msg = recv_json!(ctx.client)
-        assert msg["payload"]["code"] == "unknown_type"
-        assert msg["id"] == "c-#{type}"
-      end
+    # Phase C: the Dashboard types are routed (full coverage in dashboard_test.exs).
+    # These two don't need a data source to answer.
+    test "dashboard types are routed, not unknown_type", ctx do
+      assert Enum.sort(Quicksilver.Gateway.Routes.types()) ==
+               ~w(league.set leagues.list rates.subscribe rates.unsubscribe)
+
+      WSClient.send_json(ctx.client, %{"type" => "league.set", "id" => "c-7", "payload" => %{}})
+      assert %{"id" => "c-7", "payload" => %{"code" => "bad_request"}} = recv_json!(ctx.client)
+
+      WSClient.send_json(ctx.client, %{
+        "type" => "rates.unsubscribe",
+        "id" => "c-8",
+        "payload" => %{}
+      })
+
+      assert %{"type" => "rates.unsubscribed", "id" => "c-8"} = recv_json!(ctx.client)
     end
 
     test "unknown envelope fields are ignored", ctx do

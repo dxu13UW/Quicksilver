@@ -7,20 +7,19 @@ defmodule Quicksilver.Gateway.Routes do
   `unknown_type` and the connection stays open (PROTOCOL.md "Envelope").
 
   To add a message group: write a handler module under
-  `Quicksilver.Gateway.Handlers` and add its types here.
+  `Quicksilver.Gateway.Handlers` and add its types here. If it needs process
+  messages (e.g. data-source broadcasts), add a clause to `info_handler/1`.
   """
 
+  alias Quicksilver.Gateway.Handlers.Dashboard
+
   @routes %{
-            # TODO(Phase C, after integrations I1/I2 land): route the Dashboard section of
-            # PROTOCOL.md to a Quicksilver.Gateway.Handlers.Dashboard module:
-            #   "leagues.list"      => Quicksilver.Gateway.Handlers.Dashboard,
-            #   "league.set"        => Quicksilver.Gateway.Handlers.Dashboard,
-            #   "rates.subscribe"   => Quicksilver.Gateway.Handlers.Dashboard,
-            #   "rates.unsubscribe" => Quicksilver.Gateway.Handlers.Dashboard,
-            # Until then these types answer `unknown_type`, as the session brief requires.
-            # rates.update pushes will also need the socket to accept a push message
-            # from the rates cache (see the TODO in Quicksilver.Gateway.Socket).
-          }
+    # PROTOCOL.md "Dashboard"
+    "leagues.list" => Dashboard,
+    "league.set" => Dashboard,
+    "rates.subscribe" => Dashboard,
+    "rates.unsubscribe" => Dashboard
+  }
 
   @doc "The handler module for `type`, or `:error` if the type is unknown."
   @spec fetch(String.t()) :: {:ok, module()} | :error
@@ -29,4 +28,12 @@ defmodule Quicksilver.Gateway.Routes do
   @doc "All routed types (for tests and diagnostics)."
   @spec types() :: [String.t()]
   def types, do: Map.keys(@routes)
+
+  @doc """
+  The handler that receives a process message sent to a connection, or
+  `:error` if no handler wants it (it is then dropped).
+  """
+  @spec info_handler(term()) :: {:ok, module()} | :error
+  def info_handler({Quicksilver.Integrations, _event, _payload}), do: {:ok, Dashboard}
+  def info_handler(_message), do: :error
 end

@@ -7,7 +7,8 @@ defmodule Quicksilver.Application do
       Quicksilver.Supervisor                 one_for_one
       ├── Quicksilver.Settings               GenServer, permanent
       ├── Quicksilver.Health                 GenServer, permanent
-      │   (integrations: data-source subtree goes here, see below)
+      ├── Quicksilver.Integrations.Supervisor data sources (integrations lane), permanent
+      ├── Quicksilver.Gateway.TaskSupervisor Task.Supervisor for slow request work, permanent
       ├── Quicksilver.Gateway.Endpoint       Bandit listener on 127.0.0.1, permanent
       │   └── one process per WebSocket connection (Bandit/ThousandIsland, temporary)
       └── Quicksilver.StdinWatcher           Task, transient (omitted in tests and IEx)
@@ -24,6 +25,15 @@ defmodule Quicksilver.Application do
   for I1/I2 belongs between Health and the Endpoint, as its own supervisor, so
   a crashing fetcher is restarted inside that subtree and never touches the
   gateway.
+
+  **Gateway tasks.** Requests that may wait on a data source (`leagues.list`,
+  `league.set`, `rates.subscribe`) run as temporary tasks under
+  `Quicksilver.Gateway.TaskSupervisor` (`Task.Supervisor.async_nolink`), so a
+  connection process never blocks on the network and a crashing job is only an
+  `internal` error for that one request. Tasks are never restarted (temporary):
+  a retry is the client's decision. The supervisor starts before the
+  Endpoint so it exists before the first connection; if it crashes, it is
+  restarted alone (one_for_one) and connections answer `internal` meanwhile.
 
   **Connections.** Each WebSocket connection runs in its own process under
   Bandit's connection supervisor, with restart `:temporary`: a crashed
@@ -57,6 +67,7 @@ defmodule Quicksilver.Application do
         Quicksilver.Settings,
         Quicksilver.Health,
         Quicksilver.Integrations.Supervisor,
+        {Task.Supervisor, name: Quicksilver.Gateway.TaskSupervisor},
         {Endpoint, port: launch.port, token: launch.token}
       ] ++ stdin_watcher(launch)
 

@@ -7,6 +7,8 @@ defmodule Quicksilver.Gateway.Connection do
     * `client_version`: from `hello`, once ready.
     * `assigns`: free-form map for handlers (subscriptions and the like).
     * `hello_timer` / `health_timer`: timer refs owned by the socket.
+    * `tasks`: async handler jobs in flight, `%{monitor_ref => {pid, handler, type, id}}`
+      (see `Quicksilver.Gateway.Handler`), owned by the socket.
   """
 
   @enforce_keys [:opts]
@@ -15,7 +17,8 @@ defmodule Quicksilver.Gateway.Connection do
             client_version: nil,
             assigns: %{},
             hello_timer: nil,
-            health_timer: nil
+            health_timer: nil,
+            tasks: %{}
 
   @type t :: %__MODULE__{
           phase: :awaiting_hello | :ready,
@@ -23,6 +26,7 @@ defmodule Quicksilver.Gateway.Connection do
           client_version: String.t() | nil,
           assigns: map(),
           hello_timer: reference() | nil,
-          health_timer: reference() | nil
+          health_timer: reference() | nil,
+          tasks: %{reference() => {pid(), module(), String.t(), String.t() | nil}}
         }
 end

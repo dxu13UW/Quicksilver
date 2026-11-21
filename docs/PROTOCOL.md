@@ -49,6 +49,7 @@ Rules:
 - `ts` is informational. Receivers don't validate it or rely on it, so clock differences don't matter.
 - Binary frames are `bad_json`, or `unauthorized` before `hello`.
 - For an unknown `type`, the server replies with error `unknown_type` and **keeps the connection open**.
+- Replies can arrive in a different order from the requests: a slow upstream call doesn't hold up later requests. The client matches replies to requests by `id`, never by order.
 
 ## Connection
 
@@ -65,7 +66,7 @@ Rules:
 {"server_version": "0.1.0", "protocol_version": 1, "league": "Covens",
  "features": {"trade_api_enabled": true}, "health_interval_s": 5}
 ```
-- `league` is the saved league, or `null` if none has been chosen yet.
+- `league` is the **active** league, the same value as `leagues.result.current`. That is the saved league, or the default league when none is saved or the saved one has ended. It's `null` only if the backend has no league yet. (Decided 2026-11-19; it was "the saved league".)
 - **Wrong token** → error `unauthorized`, then the server closes the connection.
 - **Different `protocol_version`** → error `protocol_mismatch`, with `"expected": 1` in the payload, then the server closes the connection.
   - The client shows: "Backend and client versions don't match. Reinstall Quicksilver."
@@ -152,6 +153,8 @@ Echoes the `id` of the message that caused it, or `null`.
 - The backend saves the league to its settings file and restores it on the next launch (DASH-2).
 - If the client is subscribed to rates, a fresh `rates.update` push follows.
 - A league that isn't in the list gets error `unknown_league`.
+- If the league list can't be fetched (nothing cached and the source is down), the league can't be checked, so the reply is error `upstream_unavailable` and nothing is saved.
+- If the client is subscribed and the server has no rates for the new league (poe.ninja doesn't cover it, e.g. Ruthless, or the fetch fails with nothing cached), it pushes the rates error described under `rates.subscribe` instead of a `rates.update`.
 
 **Default league:** if none is saved, the backend uses the first PC league in the list (the current challenge league), or `Standard` if the list can't be fetched.
 
@@ -162,6 +165,11 @@ Echoes the `id` of the message that caused it, or `null`.
 - **Subscribe:** the server replies with a `rates.update` that echoes the id. After that it pushes a `rates.update` (id `null`) whenever the cache refreshes or the league changes.
 - **Unsubscribe:** the server replies with `rates.unsubscribed` (payload `{}`) and stops the pushes.
 - If there's no data yet and the source is down, the server sends error `upstream_unavailable` instead. The subscription stays active, and data is pushed once it arrives.
+- **Rates error push** (decided 2026-11-19): when a subscribed client's league changes and there are no rates for the new league, the server pushes error `upstream_unavailable` with id `null` and two extra payload fields, `"topic": "rates"` and the `"league"` it applies to:
+  ```json
+  {"code": "upstream_unavailable", "message": "poe.ninja has no prices for this league.", "topic": "rates", "league": "Ruthless Covens"}
+  ```
+  The client clears the rates table and shows the message. A later `rates.update` for that league replaces it. The subscription stays active.
 
 ### `rates.update` (s→c)
 ```json

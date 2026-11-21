@@ -11,10 +11,11 @@ defmodule Quicksilver.ApplicationTest do
 
   test "supervision tree is up with the expected children" do
     ids = Supervisor.which_children(Quicksilver.Supervisor) |> Enum.map(&elem(&1, 0))
-    assert length(ids) == 4
+    assert length(ids) == 5
     assert Quicksilver.Settings in ids
     assert Quicksilver.Health in ids
     assert Quicksilver.Integrations.Supervisor in ids
+    assert Quicksilver.Gateway.TaskSupervisor in ids
     assert Endpoint in ids
     # stdin watcher is off in tests (config/test.exs)
     refute Quicksilver.StdinWatcher in ids

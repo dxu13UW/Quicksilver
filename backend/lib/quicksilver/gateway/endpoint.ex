@@ -11,6 +11,12 @@ defmodule Quicksilver.Gateway.Endpoint do
     * `:max_frame_size` in bytes (1 MiB; item text is a few KB).
     * `:health` / `:settings`: the `Quicksilver.Health` / `Quicksilver.Settings`
       servers that connections use (default: the app's named instances).
+    * `:data_source`: `{module, arg}` implementing `Quicksilver.Gateway.DataSource`
+      (default: the app's `Quicksilver.Integrations`).
+    * `:task_sup`: the `Task.Supervisor` that runs slow handler work
+      (default `Quicksilver.Gateway.TaskSupervisor`).
+    * `:upstream_timeout_ms` (15000): how long a request waits for a data
+      source with nothing cached before answering `upstream_unavailable`.
 
   ## Port across restarts
 
@@ -75,7 +81,12 @@ defmodule Quicksilver.Gateway.Endpoint do
         Keyword.get(opts, :health_interval_ms, Keyword.get(app, :health_interval_ms, 5_000)),
       max_frame_size: Keyword.get(opts, :max_frame_size, 1_048_576),
       health: Keyword.get(opts, :health, Quicksilver.Health),
-      settings: Keyword.get(opts, :settings, Quicksilver.Settings)
+      settings: Keyword.get(opts, :settings, Quicksilver.Settings),
+      data_source:
+        Keyword.get(opts, :data_source, {Quicksilver.Gateway.DataSource.Integrations, nil}),
+      task_sup: Keyword.get(opts, :task_sup, Quicksilver.Gateway.TaskSupervisor),
+      upstream_timeout_ms:
+        Keyword.get(opts, :upstream_timeout_ms, Keyword.get(app, :upstream_timeout_ms, 15_000))
     }
   end
 

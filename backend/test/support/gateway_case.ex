@@ -6,6 +6,11 @@ defmodule Quicksilver.GatewayCase do
 
   Tag a test with `@tag gateway: [token: nil, hello_timeout_ms: 100, ...]` to
   override endpoint options.
+
+  The default data source is `Quicksilver.Test.ScriptedSource` on a private
+  PubSub, whose active league is the league saved in the test's Settings (like
+  `Quicksilver.Integrations.Leagues` before its list has loaded), so the app's
+  own integrations processes are never used.
   """
 
   use ExUnit.CaseTemplate
@@ -28,12 +33,40 @@ defmodule Quicksilver.GatewayCase do
     uniq = System.unique_integer([:positive])
     settings = :"settings_#{uniq}"
     health = :"health_#{uniq}"
-    endpoint = :"endpoint_#{uniq}"
 
     start_supervised!({Quicksilver.Settings, name: settings, dir: context.tmp_dir}, id: settings)
     start_supervised!({Quicksilver.Health, name: health}, id: health)
+    pubsub = :"pubsub_#{uniq}"
+    start_supervised!({Quicksilver.Integrations.PubSub, name: pubsub}, id: pubsub)
+
+    data_source =
+      {Quicksilver.Test.ScriptedSource,
+       %{
+         pubsub: pubsub,
+         current_league: fn -> Quicksilver.Settings.get(settings, "league", nil) end
+       }}
 
     overrides = Map.get(context, :gateway, [])
+
+    gateway =
+      start_gateway!(
+        Keyword.merge([health: health, settings: settings, data_source: data_source], overrides)
+      )
+
+    Map.merge(gateway, %{health: health, settings: settings})
+  end
+
+  @doc """
+  Starts an endpoint (on an OS-chosen port) and its own task supervisor, both
+  supervised by the test. `opts` are endpoint options; `:health` and
+  `:settings` are required. Returns `%{port:, token:, endpoint:, task_sup:}`.
+  """
+  def start_gateway!(opts) do
+    uniq = System.unique_integer([:positive])
+    endpoint = :"endpoint_#{uniq}"
+    task_sup = :"gateway_tasks_#{uniq}"
+
+    ExUnit.Callbacks.start_supervised!({Task.Supervisor, name: task_sup}, id: task_sup)
 
     endpoint_opts =
       Keyword.merge(
@@ -43,20 +76,20 @@ defmodule Quicksilver.GatewayCase do
           token: @token,
           hello_timeout_ms: 5_000,
           health_interval_ms: 5_000,
-          health: health,
-          settings: settings
+          task_sup: task_sup
         ],
-        overrides
+        opts
       )
 
-    start_supervised!({Quicksilver.Gateway.Endpoint, endpoint_opts})
+    ExUnit.Callbacks.start_supervised!({Quicksilver.Gateway.Endpoint, endpoint_opts},
+      id: endpoint
+    )
 
     %{
       port: Quicksilver.Gateway.Endpoint.port(endpoint),
       token: endpoint_opts[:token],
-      health: health,
-      settings: settings,
-      endpoint: endpoint
+      endpoint: endpoint,
+      task_sup: task_sup
     }
   end
 
