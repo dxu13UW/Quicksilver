@@ -3,13 +3,16 @@
 // protocol_mismatch, unauthorized, close 1008), CON-3 (health push),
 // CON-4 (backend killed -> disconnected -> restarted and reconnected),
 // PROTOCOL "Origin check" (QWebSocket's default sends no Origin; one with an
-// Origin is refused).
+// Origin is refused), DASH-1/DASH-2/DASH-3 + NFR-UX-3 offline: with no
+// network and nothing cached, the dashboard shows its "no data" states
+// (upstream_unavailable) instead of failing.
 //
 // Skips if Erlang/Elixir or backend/ can't be found. Label: integration.
 
 #include "core/backend_connection.h"
 #include "core/backend_locator.h"
 #include "core/backend_process.h"
+#include "core/dashboard.h"
 #include "core/protocol_client.h"
 #include "core/protocol_codec.h"
 
@@ -171,6 +174,51 @@ private slots:
         const qint64 pid2 = conn.process()->processId();
         conn.shutdown();
         QVERIFY(processGone(pid2, 5000));
+    }
+
+    void dashboard_offline_noDataStates() // DASH-1, DASH-2, DASH-3, NFR-UX-3
+    {
+        // QUICKSILVER_OFFLINE=1: no league list, no rates. Nothing is saved:
+        // league.set is refused before the settings file is touched.
+        BackendProcess proc;
+        QVERIFY(bootProcess(proc));
+        ProtocolClient client("0.1.0");
+        Dashboard dash;
+        dash.attach(&client);
+        client.open(proc.port(), proc.token());
+
+        LeagueController *lc = dash.leagues();
+        RatesFeed *rates = dash.rates();
+        QTRY_VERIFY_WITH_TIMEOUT(lc->listState() == LeagueController::ListState::Unavailable, 30000);
+        qInfo().noquote() << "leagues.list:" << lc->listError() << "| current:" << lc->current();
+        QVERIFY(!lc->listError().isEmpty());
+        QVERIFY(lc->leagues().isEmpty());
+
+        QTRY_COMPARE_WITH_TIMEOUT(rates->state(), RatesFeed::State::Error, 30000);
+        qInfo().noquote() << "rates:" << rates->errorCode() << rates->message();
+        QCOMPARE(rates->errorCode(), QStringLiteral("upstream_unavailable"));
+        QVERIFY(!rates->message().isEmpty());
+        QCOMPARE(rates->model()->rowCount(), 0);
+
+        // CON-3/DASH-3: health arrives and names the sources.
+        QTRY_VERIFY_WITH_TIMEOUT(dash.health()->hasReport(), 10000);
+        QVERIFY(dash.health()->rowCount() >= 1);
+        qInfo().noquote() << "health:" << dash.health()->summary();
+
+        // DASH-2: a change can't be checked without the list -> error, revert.
+        QSignalSpy failed(lc, &LeagueController::changeFailed);
+        const QString before = lc->current();
+        const QString target = before == QLatin1String("Standard") ? QStringLiteral("Hardcore") : QStringLiteral("Standard");
+        QVERIFY(lc->select(target));
+        QVERIFY(failed.wait(30000));
+        QCOMPARE(failed.first().at(1).toString(), QStringLiteral("upstream_unavailable"));
+        QCOMPARE(lc->current(), before);
+        QVERIFY(client.isReady());
+
+        client.close();
+        const qint64 pid = proc.processId();
+        proc.stop();
+        QVERIFY(processGone(pid, 5000));
     }
 
     void handshakeRejections() // CON-2

@@ -6,14 +6,15 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Network WebSockets Widgets Test)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Network WebSockets Widgets Test)
 qt_standard_project_setup()
 
 if(MSVC)
   add_compile_options(/W4 /permissive- /utf-8)
 endif()
 
-# --- Core library: protocol, backend process, connection policy (no widgets) ---
+# --- Core library: protocol, backend process, connection policy, dashboard
+# models (no widgets; QtGui only for colours in item models) ---
 set(QS_PLATFORM_SOURCES)
 if(WIN32)
   list(APPEND QS_PLATFORM_SOURCES src/platform/process_job_win.cpp src/platform/child_stdin_win.cpp)
@@ -30,29 +31,52 @@ add_library(quicksilver_core STATIC
   src/core/backend_locator.h
   src/core/backend_process.cpp
   src/core/backend_process.h
+  src/core/dashboard.cpp
+  src/core/dashboard.h
+  src/core/dashboard_format.cpp
+  src/core/dashboard_format.h
+  src/core/health_model.cpp
+  src/core/health_model.h
+  src/core/league_controller.cpp
+  src/core/league_controller.h
   src/core/protocol_client.cpp
   src/core/protocol_client.h
   src/core/protocol_codec.cpp
   src/core/protocol_codec.h
+  src/core/rates_feed.cpp
+  src/core/rates_feed.h
+  src/core/rates_model.cpp
+  src/core/rates_model.h
   src/platform/child_stdin.h
   src/platform/process_job.h
   ${QS_PLATFORM_SOURCES}
 )
 target_include_directories(quicksilver_core PUBLIC src)
-target_link_libraries(quicksilver_core PUBLIC Qt6::Core Qt6::Network Qt6::WebSockets)
+target_link_libraries(quicksilver_core PUBLIC Qt6::Core Qt6::Gui Qt6::Network Qt6::WebSockets)
 target_compile_definitions(quicksilver_core PUBLIC
   QS_CLIENT_VERSION="${PROJECT_VERSION}"
   # Dev fallback for finding backend/ when the exe isn't run from the repo.
   QS_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
+# --- Widgets (a library so widget tests can link it) ---
+add_library(quicksilver_ui STATIC
+  src/ui/command_center_window.cpp
+  src/ui/command_center_window.h
+  src/ui/health_panel.cpp
+  src/ui/health_panel.h
+  src/ui/league_selector.cpp
+  src/ui/league_selector.h
+  src/ui/rates_panel.cpp
+  src/ui/rates_panel.h
+)
+target_link_libraries(quicksilver_ui PUBLIC quicksilver_core Qt6::Widgets)
+
 # --- The app ---
 qt_add_executable(Quicksilver WIN32
   src/main.cpp
-  src/ui/command_center_window.cpp
-  src/ui/command_center_window.h
 )
-target_link_libraries(Quicksilver PRIVATE quicksilver_core Qt6::Widgets)
+target_link_libraries(Quicksilver PRIVATE quicksilver_ui)
 
 # Copy the Qt runtime next to the exe after each build so it runs by double-click.
 option(QS_DEPLOY_QT "Run windeployqt after building Quicksilver.exe" ON)

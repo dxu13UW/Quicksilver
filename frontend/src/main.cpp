@@ -31,6 +31,8 @@ int main(int argc, char *argv[])
         connection.process()->setReadyTimeoutMs(readyTimeoutS * 1000);
 
     qs::CommandCenterWindow window(&connection);
+    // Dev aid: save a PNG of the window after each dashboard change.
+    window.setSnapshotDir(env.value(QStringLiteral("QUICKSILVER_SNAPSHOT_DIR")));
     window.show();
     connection.start();
 

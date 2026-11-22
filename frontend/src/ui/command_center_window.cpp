@@ -1,16 +1,16 @@
 #include "ui/command_center_window.h"
 
 #include "core/app_log.h"
+#include "ui/health_panel.h"
+#include "ui/league_selector.h"
+#include "ui/rates_panel.h"
 
 #include <QApplication>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFontDatabase>
-#include <QGroupBox>
+#include <QFrame>
 #include <QHBoxLayout>
-#include <QHeaderView>
-#include <QJsonArray>
-#include <QJsonDocument>
 #include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -18,7 +18,8 @@
 #include <QPushButton>
 #include <QSplitter>
 #include <QStatusBar>
-#include <QTreeWidget>
+#include <QTabWidget>
+#include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -27,18 +28,7 @@ namespace qs {
 namespace {
 QString dotStyle(const char *color)
 {
-    return QStringLiteral("QLabel { background: %1; border-radius: 7px; }").arg(QLatin1String(color));
-}
-
-QString valueText(const QJsonValue &v, const QString &suffix = {})
-{
-    if (v.isNull() || v.isUndefined())
-        return QStringLiteral("–");
-    if (v.isDouble())
-        return QString::number(v.toDouble(), 'f', 0) + suffix;
-    if (v.isString())
-        return v.toString() + suffix;
-    return QString::fromUtf8(QJsonDocument(v.toObject()).toJson(QJsonDocument::Compact));
+    return QStringLiteral("QLabel { background: %1; border-radius: 6px; }").arg(QLatin1String(color));
 }
 } // namespace
 
@@ -46,49 +36,58 @@ CommandCenterWindow::CommandCenterWindow(BackendConnection *connection, QWidget 
     : QMainWindow(parent), m_connection(connection)
 {
     setWindowTitle(QStringLiteral("Quicksilver"));
-    resize(820, 600);
+    resize(960, 720);
 
-    // --- Connection card ---
+    // --- Connection card (compact strip) ---
     m_dot = new QLabel;
-    m_dot->setFixedSize(14, 14);
+    m_dot->setFixedSize(12, 12);
     m_headline = new QLabel;
     QFont hf = m_headline->font();
-    hf.setPointSizeF(hf.pointSizeF() * 1.35);
     hf.setBold(true);
     m_headline->setFont(hf);
-    m_headline->setWordWrap(true);
     m_detail = new QLabel;
     m_detail->setWordWrap(true);
     m_detail->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_detail->setStyleSheet(QStringLiteral("QLabel { color: #6b7280; }"));
     m_restart = new QPushButton(QStringLiteral("Restart backend"));
     m_restart->setToolTip(QStringLiteral("Stop the backend and start a fresh one"));
     connect(m_restart, &QPushButton::clicked, m_connection, &BackendConnection::restart);
 
-    auto *titleRow = new QHBoxLayout;
-    titleRow->addWidget(m_dot, 0, Qt::AlignVCenter);
-    titleRow->addWidget(m_headline, 1);
-    titleRow->addWidget(m_restart, 0, Qt::AlignTop);
-    auto *cardLayout = new QVBoxLayout;
-    cardLayout->addLayout(titleRow);
-    cardLayout->addWidget(m_detail);
-    auto *card = new QGroupBox(QStringLiteral("Backend connection"));
-    card->setLayout(cardLayout);
+    auto *cardText = new QVBoxLayout;
+    cardText->setSpacing(1);
+    cardText->addWidget(m_headline);
+    cardText->addWidget(m_detail);
+    auto *card = new QFrame;
+    card->setObjectName(QStringLiteral("connectionCard"));
+    card->setFrameShape(QFrame::StyledPanel);
+    auto *cardLayout = new QHBoxLayout(card);
+    cardLayout->setContentsMargins(10, 6, 10, 6);
+    cardLayout->addWidget(m_dot, 0, Qt::AlignVCenter);
+    cardLayout->addSpacing(4);
+    cardLayout->addLayout(cardText, 1);
+    cardLayout->addWidget(m_restart, 0, Qt::AlignVCenter);
 
-    // --- Health (raw for F1) ---
-    m_healthSummary = new QLabel(QStringLiteral("No health report yet."));
-    m_sources = new QTreeWidget;
-    m_sources->setRootIsDecorated(false);
-    m_sources->setHeaderLabels({QStringLiteral("Source"), QStringLiteral("Status"), QStringLiteral("Last success"),
-                                QStringLiteral("Cache age"), QStringLiteral("Detail"),
-                                QStringLiteral("Rate limit")});
-    m_sources->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    auto *healthLayout = new QVBoxLayout;
-    healthLayout->addWidget(m_healthSummary);
-    healthLayout->addWidget(m_sources);
-    auto *health = new QGroupBox(QStringLiteral("Data sources (raw health report)"));
-    health->setLayout(healthLayout);
+    // --- Dashboard tab ---
+    m_dashboard.attach(m_connection->client());
+    m_leagueSelector = new LeagueSelector(m_dashboard.leagues());
+    m_ratesPanel = new RatesPanel(m_dashboard.rates());
+    m_healthPanel = new HealthPanel(m_dashboard.health());
 
-    // --- Backend log tail ---
+    auto *split = new QSplitter(Qt::Vertical);
+    split->setChildrenCollapsible(false);
+    split->addWidget(m_ratesPanel);
+    split->addWidget(m_healthPanel);
+    split->setStretchFactor(0, 3);
+    split->setStretchFactor(1, 1);
+    split->setSizes({480, 150});
+
+    auto *dashPage = new QWidget;
+    auto *dashLayout = new QVBoxLayout(dashPage);
+    dashLayout->addWidget(m_leagueSelector);
+    dashLayout->addSpacing(4);
+    dashLayout->addWidget(split, 1);
+
+    // --- Backend log tab ---
     m_log = new QPlainTextEdit;
     m_log->setReadOnly(true);
     m_log->setMaximumBlockCount(500);
@@ -96,21 +95,16 @@ CommandCenterWindow::CommandCenterWindow(BackendConnection *connection, QWidget 
     m_log->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     for (const QString &line : m_connection->process()->recentLog())
         m_log->appendPlainText(line);
-    auto *logLayout = new QVBoxLayout;
-    logLayout->addWidget(m_log);
-    auto *logBox = new QGroupBox(QStringLiteral("Backend log"));
-    logBox->setLayout(logLayout);
 
-    auto *split = new QSplitter(Qt::Vertical);
-    split->addWidget(health);
-    split->addWidget(logBox);
-    split->setStretchFactor(0, 1);
-    split->setStretchFactor(1, 2);
+    m_tabs = new QTabWidget;
+    m_tabs->setDocumentMode(true);
+    m_tabs->addTab(dashPage, QStringLiteral("Dashboard"));
+    m_tabs->addTab(m_log, QStringLiteral("Backend log"));
 
     auto *central = new QWidget;
     auto *layout = new QVBoxLayout(central);
     layout->addWidget(card);
-    layout->addWidget(split, 1);
+    layout->addWidget(m_tabs, 1);
     setCentralWidget(central);
 
     // --- Menus ---
@@ -126,9 +120,14 @@ CommandCenterWindow::CommandCenterWindow(BackendConnection *connection, QWidget 
     statusBar()->showMessage(QStringLiteral("Client %1").arg(QStringLiteral(QS_CLIENT_VERSION)));
 
     connect(m_connection, &BackendConnection::statusChanged, this, &CommandCenterWindow::showStatus);
-    connect(m_connection->client(), &ProtocolClient::healthReceived, this, &CommandCenterWindow::showHealth);
     connect(m_connection->process(), &BackendProcess::logLine, this, &CommandCenterWindow::appendLog);
     showStatus(m_connection->status());
+}
+
+CommandCenterWindow::~CommandCenterWindow()
+{
+    // The views use models owned by m_dashboard; remove them before it goes.
+    delete takeCentralWidget();
 }
 
 void CommandCenterWindow::showStatus(const BackendConnection::Status &status)
@@ -146,35 +145,40 @@ void CommandCenterWindow::showStatus(const BackendConnection::Status &status)
     m_dot->setStyleSheet(dotStyle(color));
     m_headline->setText(status.headline.isEmpty() ? QStringLiteral("Not started") : status.headline);
     m_detail->setText(status.detail);
-    if (status.phase != P::Connected) {
-        m_healthSummary->setText(QStringLiteral("No live health report (not connected)."));
-        m_sources->setEnabled(false);
-    } else {
-        m_sources->setEnabled(true);
-    }
-}
-
-void CommandCenterWindow::showHealth(const QJsonObject &payload)
-{
-    m_healthSummary->setText(
-        QStringLiteral("Backend up for %1 s").arg(payload.value(QLatin1String("uptime_s")).toInt()));
-    m_sources->clear();
-    // PROTOCOL: show the sources in the order given.
-    for (const QJsonValue &v : payload.value(QLatin1String("sources")).toArray()) {
-        const QJsonObject s = v.toObject();
-        auto *item = new QTreeWidgetItem(m_sources);
-        item->setText(0, s.value(QLatin1String("name")).toString());
-        item->setText(1, s.value(QLatin1String("status")).toString());
-        item->setText(2, valueText(s.value(QLatin1String("last_success"))));
-        item->setText(3, valueText(s.value(QLatin1String("cache_age_s")), QStringLiteral(" s")));
-        item->setText(4, valueText(s.value(QLatin1String("detail"))));
-        item->setText(5, valueText(s.value(QLatin1String("rate_limit"))));
-    }
+    m_detail->setVisible(!status.detail.isEmpty());
+    // Covers silent closes (Restart, shutdown) the client doesn't signal.
+    if (status.phase != P::Connected)
+        m_dashboard.connectionLost();
 }
 
 void CommandCenterWindow::appendLog(const QString &line)
 {
     m_log->appendPlainText(line);
+}
+
+void CommandCenterWindow::setSnapshotDir(const QString &dir)
+{
+    m_snapshotDir = dir;
+    if (dir.isEmpty())
+        return;
+    QDir().mkpath(dir);
+    connect(m_dashboard.rates(), &RatesFeed::changed, this, &CommandCenterWindow::scheduleSnapshot);
+    connect(m_dashboard.leagues(), &LeagueController::changed, this, &CommandCenterWindow::scheduleSnapshot);
+}
+
+void CommandCenterWindow::scheduleSnapshot()
+{
+    if (m_snapshotQueued || m_snapshotDir.isEmpty())
+        return;
+    m_snapshotQueued = true;
+    // Let the layout settle first.
+    QTimer::singleShot(400, this, [this] {
+        m_snapshotQueued = false;
+        const QString path =
+            QDir(m_snapshotDir).filePath(QStringLiteral("dashboard-%1.png").arg(++m_snapshotCount, 2, 10, QLatin1Char('0')));
+        grab().save(path);
+        qInfo().noquote() << "snapshot" << path;
+    });
 }
 
 void CommandCenterWindow::showAbout()

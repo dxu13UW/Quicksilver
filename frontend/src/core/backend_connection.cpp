@@ -116,10 +116,11 @@ void BackendConnection::onWelcome(const WelcomeInfo &welcome)
 {
     m_reconnectFailures = 0;
     m_relaunchFailures = 0;
-    QString detail = QStringLiteral("Backend %1 · protocol %2 · league %3")
-                         .arg(welcome.serverVersion)
-                         .arg(welcome.protocolVersion)
-                         .arg(welcome.league.isEmpty() ? QStringLiteral("not chosen yet") : welcome.league);
+    // The league lives in the dashboard's selector (welcome.league is only
+    // its starting value), so it isn't repeated here.
+    const QString detail = QStringLiteral("Backend %1 · protocol %2")
+                               .arg(welcome.serverVersion)
+                               .arg(welcome.protocolVersion);
     setStatus(Phase::Connected, QStringLiteral("Connected"), detail, welcome.serverVersion);
 }
 

@@ -30,7 +30,7 @@ struct WelcomeInfo {
     int protocolVersion = 0;
     QString league; // empty when the backend sent null
     bool tradeApiEnabled = false;
-    int healthIntervalS = 0;
+    double healthIntervalS = 0; // seconds; may be fractional (PROTOCOL)
     QJsonObject raw;
 };
 

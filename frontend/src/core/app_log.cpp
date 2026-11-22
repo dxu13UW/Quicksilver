@@ -53,6 +53,13 @@ void handler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg)
 
 QString logDir()
 {
+    // Dev override, e.g. to run a second instance without touching the
+    // first one's logs.
+    const QString overrideDir = qEnvironmentVariable("QUICKSILVER_LOG_DIR");
+    if (!overrideDir.isEmpty()) {
+        QDir().mkpath(overrideDir);
+        return QDir(overrideDir).absolutePath();
+    }
     QString base = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
     if (base.isEmpty())
         base = QDir::tempPath();

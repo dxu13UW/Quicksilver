@@ -153,7 +153,7 @@ void ProtocolClient::onTextMessage(const QString &text)
             m_welcome.league = p.value(QLatin1String("league")).toString();
             m_welcome.tradeApiEnabled =
                 p.value(QLatin1String("features")).toObject().value(QLatin1String("trade_api_enabled")).toBool();
-            m_welcome.healthIntervalS = p.value(QLatin1String("health_interval_s")).toInt();
+            m_welcome.healthIntervalS = p.value(QLatin1String("health_interval_s")).toDouble();
             m_welcome.raw = p;
             m_handshakeTimer.stop();
             m_state = State::Ready;

@@ -9,6 +9,7 @@
 
 namespace qs::applog {
 
+// %LOCALAPPDATA%/Quicksilver/logs, or QUICKSILVER_LOG_DIR when set (dev).
 QString logDir();
 QString clientLogPath();
 QString backendLogPath();

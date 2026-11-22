@@ -146,7 +146,7 @@ private slots:
         QCOMPARE(w.protocolVersion, 1);
         QCOMPARE(w.league, QStringLiteral("Covens"));
         QVERIFY(w.tradeApiEnabled);
-        QCOMPARE(w.healthIntervalS, 5);
+        QCOMPARE(w.healthIntervalS, 5.0);
 
         QTRY_COMPARE_WITH_TIMEOUT(health.size(), 1, 5000);
         const QJsonObject h = health.first().first().toJsonObject();
@@ -162,6 +162,7 @@ private slots:
         fake.script = [](QWebSocket *s, const QJsonObject &m) {
             QJsonObject p = FakeBackend::welcomePayload();
             p.insert("league", QJsonValue::Null);
+            p.insert("health_interval_s", 0.25); // a number, may be fractional
             FakeBackend::send(s, "welcome", m.value("id"), p);
         };
         ProtocolClient client("0.1.0");
@@ -169,6 +170,7 @@ private slots:
         client.open(fake.port(), "t");
         QVERIFY(ready.wait(5000));
         QVERIFY(client.welcome().league.isEmpty());
+        QCOMPARE(client.welcome().healthIntervalS, 0.25);
     }
 
     void requests_matchedById_outOfOrder()
