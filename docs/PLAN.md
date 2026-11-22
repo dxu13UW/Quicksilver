@@ -28,9 +28,9 @@ Goal: both halves run and talk to each other, and the dashboard shows real data.
 - ☑ **I1** poe.ninja client with cache and refresh schedule (currency + one item category)
 - ☑ **I2** League list from the official API; league selection stored in backend config
 - ☑ **F1** Qt app with command center window; connects to backend and shows connection status
-- ◐ **F2** Dashboard: currency rates table, league selector, backend health panel
-- ☐ **Q1** QA test plan for protocol messages; first backend tests
-- ◐ Log entries and portfolio update
+- ☑ **F2** Dashboard: currency rates table, league selector, backend health panel
+- ☑ **Q1** QA test plan for protocol messages; first backend tests
+- ☑ Log entries and portfolio update (card drafted 2026-11-21; owner submits link)
 
 ## Week 3 (Nov 23–29): Item price check (Thanksgiving week, so plan light)
 - ☐ **F3** Overlay window: transparent, always-on-top, click-through except on its own panel

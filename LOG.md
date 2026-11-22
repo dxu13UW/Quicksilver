@@ -309,3 +309,121 @@ Newest entries at the bottom. Every agent session ends with an entry. This log i
   - **Backend (B6):** the release needs an `.exe` entry point (no `.bat` through cmd), and its stdin must be an anonymous pipe (see the F1 entry).
   - **QA (Q1):** a protocol test plan covering the whole v1 surface. Tests already cite CON-1–4, DASH-1/2, NFR-REL-3, NFR-SEC-2 and NFR-MNT-2.
 - Next step: F2 (frontend), Q1 (qa), then the Week 2 portfolio update.
+
+### 2026-11-21: F2 dashboard: league selector, rates table, health panel
+- Who: frontend agent
+- Goal: PLAN F2. The command center dashboard: currency rates table, league selector and backend health panel on PROTOCOL v1 (DASH-1, DASH-2, DASH-3; CON-3, CON-4, NFR-REL-3, NFR-UX-3).
+- Done:
+  - Core, no widgets (`src/core/`; `quicksilver_core` now also links QtGui, for colours in item models):
+    - `Dashboard` wires the three below to one `ProtocolClient`.
+    - `LeagueController`: `leagues.list` on every welcome; `select()` → `league.set`; pending/success/error with revert.
+    - `RatesFeed`: `rates.subscribe` on every welcome (so it re-subscribes after each reconnect); `rates.update` reply/push; the subscribe error and the rates error push → cleared table + message; last rows kept while disconnected.
+    - `RatesModel` + `RatesSortProxy`, `HealthModel`, `dashboard_format` (all number/age wording).
+  - UI (`src/ui/`, new static lib `quicksilver_ui` so widget tests can link it):
+    - `CommandCenterWindow`: compact connection strip on top, then tabs "Dashboard" and "Backend log".
+    - Dashboard tab: `LeagueSelector` row, then a vertical splitter with `RatesPanel` above `HealthPanel`.
+    - `RatesPanel`: heading "Currency rates · <league>"; meta line "poe.ninja · updated N min ago · 1 divine = N chaos"; STALE and OFFLINE chips; name filter; a table or a message page (waiting / loading / no rates / empty).
+    - `HealthPanel`: one row per source in the given order, a status pill (idle/ok/degraded/down; grey "unknown" while disconnected), last success, cache age, detail, rate limit.
+  - Tests: 9 ctest programs, 156 Qt Test cases, all passing from a clean build dir (`build.bat clean`). New:
+    - `tst_dashboard_format` 27
+    - `tst_rates_model` 12: parse, in-place update, numeric sort, nulls last, ties, sort kept across refreshes
+    - `tst_dashboard_client` 23: Dashboard against the fake server (leagues.result, league.set ok/error/revert, out-of-order replies, rates.update, stale, subscribe error, rates error push, reconnect re-subscribes, health)
+    - `tst_dashboard_widgets` 12: offscreen widgets. A programmatic fill sends nothing; a user keypress sends exactly one `league.set`; an error reverts the combo; refresh keeps sort and scroll.
+    - e2e +1: the real backend with `QUICKSILVER_OFFLINE=1` gives `leagues.list` → `upstream_unavailable`, the rates Error state, health, and `league.set` → `upstream_unavailable` + revert (nothing saved).
+  - Live run, online, of the new `Quicksilver.exe`:
+    - Real data: 8 PC leagues; Covens 108 rates (1 div = 213 c); one user keystroke → one `league.set "Standard"` → 100 Standard rows (1 div = 802 c).
+    - Relaunch: Standard was restored (DASH-2). Switching to "Ruthless" shows "No rates for Ruthless / poe.ninja has no prices for this league."
+    - Health: poe.ninja and the league list went idle → ok. Closing the window: the backend exited with code 0.
+    - Screenshots: `frontend/build/f2-live/` (not committed).
+  - Dev aids:
+    - `QUICKSILVER_LOG_DIR` (log folder), `QUICKSILVER_SNAPSHOT_DIR` (window PNGs after dashboard changes).
+    - `build.bat` honours `QS_BUILD_DIR`.
+    - Test exes now build into `build/tests/`.
+- Decisions:
+  - Only the combo's user-only `activated()` sends `league.set`; fills run under `QSignalBlocker`.
+  - One league change in flight at a time. The combo stays enabled while it's pending (disabling it threw keyboard focus elsewhere); choices made meanwhile snap back.
+  - A `leagues.result` requested before a successful change doesn't overwrite `current` (out-of-order replies).
+  - After `league.changed` for another league, the table clears to "Loading rates for X…" instead of showing the old league's rows under the new name.
+  - Same-league `rates.update`s update rows in place, keyed by `id` (no model reset), so the user's sort and scroll stay. Null `change_7d`/`volume_chaos` sort last in both directions; ties keep the backend order.
+  - Disconnected: the last rates stay, marked OFFLINE (NFR-REL-3); health rows stay but turn grey "unknown".
+  - The connection strip no longer repeats `welcome.league` (it went stale after a switch); the selector owns the league.
+- Problems / surprises:
+  - Test exes sat next to `Quicksilver.exe` and loaded windeployqt's `Qt6Cored.dll`. Qt then looked for plugins in `build/platforms` (qwindows only), so the offscreen widget test hit `qFatal` and hung on the Debug abort dialog. Fixed with a separate output directory.
+  - The owner had `build\Quicksilver.exe` open (started from Explorer at 13:11), which locks `build/`. I didn't close it: iteration and the final `build.bat clean` ran with `QS_BUILD_DIR` set to a scratch folder.
+  - `%APPDATA%\Quicksilver\settings.json` didn't exist before this session. My runs saved Standard and then Ruthless (13:45:40), but at 13:45:47 something else wrote `"league": "Covens"`: the owner's running instance or another agent's test. I left the file as it is.
+  - The UIA "SetFocus" on the Qt combo didn't move keyboard focus. The live switches used Tab plus combo keyboard search. The script sent keys only after checking that our window was in front and the combo had focus.
+- Handoffs:
+  - **backend / protocol questions:**
+    1. On a cold start, `rates.subscribe` answered `upstream_unavailable` within about 25 ms (no league yet), and the rates arrived as a push about 0.8 s later. PROTOCOL says subscribe waits for the first fetch. The UI briefly shows "No rates available". Could subscribe wait for the league, like `leagues.list` does?
+    2. Offline: `welcome.league` is null and `leagues.list` fails, so the client never learns the active league. The backend then picks `Standard` and pushes a rates error for it. The amended PROTOCOL says the client learns the league from `leagues.list`, which can't happen here. Should there be a `league.changed` push (id null) when the backend picks or changes the league itself?
+    3. With `QUICKSILVER_OFFLINE=1`, health still reports `poe_ninja` and `trade_leagues` as `idle` after failed requests. If a real network loss behaves the same, DASH-3 ("unplug → degraded/down") won't show. Worth a check.
+    4. The selected league is shared by every instance through settings.json (see above). That's fine for one user, but it's worth knowing for tests that call `league.set` against a dev backend.
+  - **qa:** the new tests cite DASH-1/2/3, CON-3/4, NFR-REL-3, NFR-UX-3 and NFR-MNT-2. Widget tests need `QT_QPA_PLATFORM=offscreen` (ctest sets it).
+  - **owner:**
+    - Add to the Obsidian log: user-only `activated()`, one change in flight, in-place id-keyed rate updates, last data kept OFFLINE.
+    - Rebuild in `build/` (`build.bat clean`) once your running Quicksilver.exe is closed.
+- Next step: Q1 review of F2, then the Week 2 portfolio update. Mark F2 ☑ in PLAN after the owner's check.
+- Addendum (same day, after the owner's decision on the `league.changed` push):
+  - `LeagueController` now handles the `league.changed` **push** (id null). It sets `current()` without sending anything and emits `backendChanged`; the selector shows "Backend switched to X" and the rates feed goes to "loading" for X, as after a user switch.
+  - While a user `league.set` is pending, the pending choice stays shown and the reply decides. `current()` still follows the push, so a failed change reverts to the backend's real league, and the rates feed expects that league.
+  - A push also invalidates the `current` of a `leagues.result` that is still in flight.
+  - `WelcomeInfo::healthIntervalS` is now a `double` (PROTOCOL: a number, which may be fractional).
+  - Tests: +4 fake-server cases (a push selects without sending; a push before an old list reply; a push during a pending set, both on success and on error) and +2 widget cases (the combo and the note update without `league.set`; the pending choice stays shown). The welcome test now checks a fractional `health_interval_s`. All 9 ctest programs pass: 162 cases (built with `QS_BUILD_DIR`, because the owner's window still locks `build/`).
+
+### 2026-11-21: Q1 test plan + QA review, gap tests, league.changed push, cold-start rates
+- Who: me + Claude Code (main session; qa, backend, integrations and frontend agents)
+- Goal: finish the Week 2 build items: F2 (entry above), Q1, and the follow-ups from QA and F2's live run.
+- Done:
+  - **Q1 (qa agent):** created `docs/TEST_PLAN.md` with 150 cases, each citing requirement IDs: 120 covered, 11 partial, 6 gaps, 4 pending F2, and 9 N/A or review only. It also has a 19-step manual checklist and the run commands.
+    - QA review, against the committed `fc06e93` plus the backend:
+      - Protocol: **PASS**
+      - Compliance: **PASS**
+      - External calls: **PASS**
+      - Tests: **PASS**
+      - Requirements: **PASS**
+      - Docs: **PASS** (3 low fixes, all done below)
+    - No blockers.
+  - **PROTOCOL.md clarified from QA's findings:**
+    - the 500 ms `welcome.league` null fallback;
+    - a malformed `hello` envelope → `unauthorized` (`bad_request` only for bad payload fields);
+    - `health_interval_s` is a number;
+    - a pending subscribe reply is still sent after an unsubscribe;
+    - the subscribe-error reply vs the rates error push;
+    - `league.set` to the same league still pushes rates.
+  - **Gap tests:**
+    - Backend: two-fault handshake order (TP-HS-013/014), a binary frame before hello (TP-ENV-011), a malformed hello, an empty `Origin` (TP-HS-017), and a plain `GET /ws` with Origin (TP-HS-018). Also fixed the stale close-code comment in `socket.ex`.
+    - Integrations: null `change_7d`/`volume_chaos` (TP-RATES-013) and poe.ninja back-off (TP-API-012). Requirement IDs added to the 4 integrations test files.
+  - **Cold-start rates (integrations agent):** `Integrations.rates/1` now waits, bounded by `:timeout`, for the first league instead of returning `:no_league` at once. This fixes F2's brief "No rates available" at startup.
+  - **`league.changed` push (backend + frontend agents):**
+    - Every connection now gets `league.changed` (id null) when the backend changes the league itself. The client that sent `league.set` gets only its reply.
+    - The push always comes before that league's rates. A duplicate rates error on cold start was found and suppressed.
+    - F2 shows "Backend switched to X" without sending anything back.
+  - **Verified by the main session:** backend `mix test --include e2e` 3×: 174 tests, 0 failures, format clean. Frontend clean build (`QS_BUILD_DIR`): 9/9 ctest programs, 162 cases, against the new backend. F2 code: no HTTP and no input injection. PLAN: F2 ☑, Q1 ☑.
+- Decisions (PROTOCOL.md updated first; Obsidian D28):
+  - The backend pushes `league.changed` when it picks or changes the league on its own.
+  - A cold-start `rates.subscribe` waits for the first league.
+- Problems / surprises:
+  - The owner's real `%APPDATA%\Quicksilver\settings.json` is shared by every dev run that switches leagues; it's at `"Covens"` now. Automated tests never write there (`_build/test/settings`).
+  - Agents running `mix test` at the same time can collide on ExUnit `tmp_dir` paths. Seen once; not reproducible when only one suite runs.
+  - The owner's open `Quicksilver.exe` locks `frontend/build/`. `build.bat` now takes `QS_BUILD_DIR`.
+  - F2's live run drove our own window with Windows UI Automation. That's fine under COMPLIANCE, which is about the game; never point such scripts at the game client.
+- Known minor issues (not fixed):
+  - The `poe_ninja` Health can stay `degraded` for up to the retry interval (≤ 30 min) after cached data passes `stale-if-error`, before it turns `down`. A timer at `stale_until` would fix it.
+  - With `QUICKSILVER_OFFLINE=1`, health stays `idle`. Check DASH-3 (network loss → degraded/down) manually with a real network loss.
+  - Remaining TEST_PLAN gaps: `BackendConnection` unit tests (the retry policy, the "Reinstall" text, the READY timeout), launch-env stripping and stdout draining, and a lint against direct HTTP calls (TP-CMP-001/002).
+- Handoffs:
+  - **Owner:** collect 20+ item texts into `shared/samples/` before Week 3 (B3 needs them).
+  - **QA:** update TEST_PLAN statuses for the new tests and the F2 cases.
+  - **Frontend:** the BackendConnection unit tests above.
+- Next step: the Week 2 portfolio update (scribe), commit, then Week 3 (B3 parser, B4 pricing, I3 trade client, F5).
+
+### 2026-11-21: Manual UI test pass + app icon
+- Who: me + Claude (main session)
+- Goal: test every UI-testable Week 2 feature by hand before the commit; add the app icon.
+- Done:
+  - Clean rebuild of `frontend/build` with F2. The owner ran the manual checklist and every item passed: startup and status, health panel, league switch and persistence, Ruthless "no rates" state, sort and filter, Restart backend, backend killed and recovered, no `erl.exe` left after a normal close or a force-kill.
+  - App icon: the owner's winged-Mercury stone medallion, `frontend/resources/icons/quicksilver.svg`. `make_icons.ps1` renders it to PNGs (16–256 px) with headless Edge and packs `quicksilver.ico`. The exe icon comes from `resources/quicksilver.rc`; the window and taskbar icon from the `.qrc` PNGs via `QApplication::setWindowIcon`. Rebuilt; 9/9 ctest.
+- Decisions: icons are rasterised by a browser, not Qt SVG, because the SVG uses filters (`feTurbulence`, `feDisplacementMap`, `feDropShadow`) that Qt SVG ignores. The generated PNGs and `.ico` are committed, so the build needs no browser.
+- Problems / surprises: none.
+- Handoffs: none.
+- Next step: commit and push, then Week 3.

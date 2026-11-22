@@ -66,7 +66,8 @@ Rules:
 {"server_version": "0.1.0", "protocol_version": 1, "league": "Covens",
  "features": {"trade_api_enabled": true}, "health_interval_s": 5}
 ```
-- `league` is the **active** league, the same value as `leagues.result.current`. That is the saved league, or the default league when none is saved or the saved one has ended. It's `null` only if the backend has no league yet. (Decided 2026-11-19; it was "the saved league".)
+- `league` is the **active** league, the same value as `leagues.result.current`. That is the saved league, or the default league when none is saved or the saved one has ended. It's `null` if the backend has no league yet, or if the league can't be read within 500 ms (the handshake is never delayed for it). The client then learns the league from `leagues.list`. (Decided 2026-11-19; it was "the saved league".)
+- `health_interval_s` is a number of seconds (5 in production; tests may use fractions).
 - **Wrong token** → error `unauthorized`, then the server closes the connection.
 - **Different `protocol_version`** → error `protocol_mismatch`, with `"expected": 1` in the payload, then the server closes the connection.
   - The client shows: "Backend and client versions don't match. Reinstall Quicksilver."
@@ -81,7 +82,7 @@ Rules:
   3. `unauthorized`.
 
   Every handshake failure sends the error, then closes the connection with WebSocket close code **1008** (policy violation).
-- **Anything before `hello`** gets `unauthorized`, then the connection closes. That includes invalid JSON, a binary frame, or any other type.
+- **Anything before `hello`** gets `unauthorized`, then the connection closes. That includes invalid JSON, a binary frame, any other type, and a `hello` frame that isn't a valid envelope (for example no `payload` object, or an `id` that's neither a string nor `null`). `bad_request` is only for a valid `hello` envelope whose payload fields are missing or mistyped.
 - **A second `hello`** after the handshake gets `bad_request`. The connection stays open.
 - **Origin check:** an upgrade request that carries an `Origin` header is refused with HTTP 403.
   - Browsers always send `Origin`, and the Qt client doesn't, so this stops web pages from connecting to the backend, even in dev mode where there's no token.
@@ -158,13 +159,17 @@ Echoes the `id` of the message that caused it, or `null`.
 
 **Default league:** if none is saved, the backend uses the first PC league in the list (the current challenge league), or `Standard` if the list can't be fetched.
 
+**`league.changed` push** (decided 2026-11-21): whenever the active league changes without a `league.set` from this client (a default chosen on first run, a replacement for an ended league, or the `Standard` fallback), the server pushes `league.changed` with id `null` and payload `{"league": "<id>"}` to every connected client. A client that already showed that league can ignore it. Rates for the new league follow as usual for subscribed clients.
+
 **Settings file:** `settings.json` in `:filename.basedir(:user_config, "Quicksilver")`. That is `%APPDATA%\Quicksilver\` on Windows and `~/.config/Quicksilver/` on Linux.
 
 ### `rates.subscribe` / `rates.unsubscribe` (c→s)
 - Payload: `{}`.
 - **Subscribe:** the server replies with a `rates.update` that echoes the id. After that it pushes a `rates.update` (id `null`) whenever the cache refreshes or the league changes.
-- **Unsubscribe:** the server replies with `rates.unsubscribed` (payload `{}`) and stops the pushes.
-- If there's no data yet and the source is down, the server sends error `upstream_unavailable` instead. The subscription stays active, and data is pushed once it arrives.
+- On a cold start the reply waits (up to the upstream timeout) for the backend to choose a league and fetch its rates. "No league chosen yet" alone is never answered with an error.
+- **Unsubscribe:** the server replies with `rates.unsubscribed` (payload `{}`) and stops the pushes. A `rates.subscribe` reply that was already pending is still sent.
+- If there's no data yet and the source is down, the server sends error `upstream_unavailable` instead. The subscription stays active, and data is pushed once it arrives. This error is a reply (it echoes the subscribe's id and has no `topic`). The rates error push below is different: id `null`, with `topic` and `league`.
+- `league.set` to the league that's already active still triggers a fresh `rates.update` (or rates error push) for subscribed clients.
 - **Rates error push** (decided 2026-11-19): when a subscribed client's league changes and there are no rates for the new league, the server pushes error `upstream_unavailable` with id `null` and two extra payload fields, `"topic": "rates"` and the `"league"` it applies to:
   ```json
   {"code": "upstream_unavailable", "message": "poe.ninja has no prices for this league.", "topic": "rates", "league": "Ruthless Covens"}
