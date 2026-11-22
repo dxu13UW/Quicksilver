@@ -33,10 +33,12 @@ defmodule Quicksilver.Gateway.Handler do
   Process messages the socket doesn't handle itself (e.g. data-source
   broadcasts) are given to `c:handle_info/2` of the handler that
   `Quicksilver.Gateway.Routes.info_handler/1` names; it returns
-  `{:push, [{type, payload}], conn}` (pushes, id `null`), `{:ok, conn}`, or
+  `{:push, [{type, payload}], conn}` (pushes, id `null`), `{:frames, pushes,
+  conn}` (push frames as above, id `null`), `{:ok, conn}`, or
   `{:async, job_type, fun, conn}`: a job like `{:async, ...}` above that isn't
   tied to a request; `c:handle_async/3` gets `job_type`, and anything it sends
-  has id `null`.
+  has id `null`. `{:async, job_type, fun, pushes, conn}` sends `pushes` first,
+  then starts the job.
   """
 
   alias Quicksilver.Gateway.Connection
@@ -65,7 +67,9 @@ defmodule Quicksilver.Gateway.Handler do
   @callback handle_info(message :: term(), conn :: Connection.t()) ::
               {:push, [{String.t(), map()}], Connection.t()}
               | {:ok, Connection.t()}
+              | {:frames, [frame()], Connection.t()}
               | {:async, String.t(), (-> term()), Connection.t()}
+              | {:async, String.t(), (-> term()), [frame()], Connection.t()}
 
   @optional_callbacks handle_async: 3, handle_info: 2
 end

@@ -1,5 +1,7 @@
 defmodule Quicksilver.Integrations.HTTPTest do
-  # NFR-API (User-Agent, rate-limited client), DATA_SOURCES "Rules for every client".
+  # NFR-API-2 (every request through the client, project User-Agent, gzip),
+  # NFR-API-1 (errors, slot release), NFR-API-3 (Cache-Control TTLs),
+  # NFR-MNT-1 (offline: fixture adapter, Disabled default). DATA_SOURCES "Rules for every client".
   use Quicksilver.IntegrationsCase, async: true
   @moduletag :capture_log
 

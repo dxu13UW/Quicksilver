@@ -124,6 +124,20 @@ defmodule Quicksilver.Gateway.DashboardTest do
     end
   end
 
+  # The next `n` frames that aren't health pushes, in arrival order. For cases
+  # where two processes (e.g. the league server's push and a request's task)
+  # race and their relative order isn't what the test is about.
+  defp recv_n!(client, n), do: for(_ <- 1..n, do: recv!(client))
+
+  defp find!(msgs, type, id) do
+    Enum.find(msgs, &(&1["type"] == type and &1["id"] == id)) ||
+      flunk("no #{type} with id #{inspect(id)} in #{inspect(msgs)}")
+  end
+
+  defp assert_league_push(msg, league) do
+    assert %{"type" => "league.changed", "id" => nil, "payload" => %{"league" => ^league}} = msg
+  end
+
   defp assert_error(msg, id, code) do
     assert %{"type" => "error", "id" => ^id, "payload" => %{"code" => ^code} = p} = msg
     assert is_binary(p["message"]) and p["message"] != ""
@@ -177,14 +191,20 @@ defmodule Quicksilver.Gateway.DashboardTest do
       s = cold(ctx, routes())
       request(s.client, "leagues.list", "c-2")
 
-      assert %{"type" => "leagues.result", "payload" => %{"current" => "Covens"}} =
-               recv!(s.client)
+      # The backend picks the default league as the list arrives: pushed too.
+      msgs = recv_n!(s.client, 2)
+      assert %{"payload" => %{"current" => "Covens"}} = find!(msgs, "leagues.result", "c-2")
+      assert_league_push(find!(msgs, "league.changed", nil), "Covens")
     end
 
     test "upstream_unavailable when the league list can't be fetched", ctx do
       s = cold(ctx, routes(%{Urls.trade_leagues() => {:error, :econnrefused}}))
       request(s.client, "leagues.list", "c-2")
-      assert_error(recv!(s.client), "c-2", "upstream_unavailable")
+
+      # The backend falls back to Standard: pushed too.
+      msgs = recv_n!(s.client, 2)
+      assert_error(find!(msgs, "error", "c-2"), "c-2", "upstream_unavailable")
+      assert_league_push(find!(msgs, "league.changed", nil), "Standard")
     end
 
     test "upstream_unavailable when the fetch takes longer than upstream_timeout_ms", ctx do
@@ -286,6 +306,8 @@ defmodule Quicksilver.Gateway.DashboardTest do
       s = cold(ctx, routes(%{Urls.trade_leagues() => {:error, :econnrefused}}))
       request(s.client, "league.set", "c-3", %{"league" => "Covens"})
       assert_error(recv!(s.client), "c-3", "upstream_unavailable")
+      # The Standard fallback the backend chose meanwhile, after the reply.
+      assert_league_push(recv!(s.client), "Standard")
     end
 
     test "internal when the settings file can't be written", ctx do
@@ -383,7 +405,12 @@ defmodule Quicksilver.Gateway.DashboardTest do
 
       s = cold(ctx, routes(down))
       request(s.client, "rates.subscribe", "c-5")
-      assert_error(recv!(s.client), "c-5", "upstream_unavailable")
+
+      # The backend picks Covens on the way (pushed); its rates fail.
+      msgs = recv_n!(s.client, 2)
+      assert_error(find!(msgs, "error", "c-5"), "c-5", "upstream_unavailable")
+      assert_league_push(find!(msgs, "league.changed", nil), "Covens")
+      refute_frame(s.client, 200)
       assert [_] = subscribers(s.pubsub)
 
       PubSub.broadcast(s.pubsub, :rates, :rates, ScriptedSource.sample_rates())
@@ -567,6 +594,8 @@ defmodule Quicksilver.Gateway.DashboardTest do
       assert %{"type" => "rates.update", "id" => "c-2"} = recv!(s.client)
 
       PubSub.broadcast(s.pubsub, :league, :league_changed, "Standard")
+      # league.changed first, then the rates error for that league.
+      assert_league_push(recv!(s.client), "Standard")
       assert_rates_error(recv!(s.client), "Standard")
     end
 
@@ -589,13 +618,94 @@ defmodule Quicksilver.Gateway.DashboardTest do
 
       PubSub.broadcast(s.pubsub, :league, :league_changed, "Ruthless")
       assert_receive {:check, first}, 1_000
+      assert_league_push(recv!(s.client), "Ruthless")
       PubSub.broadcast(s.pubsub, :league, :league_changed, "Hardcore Ruthless")
       assert_receive {:check, second}, 1_000
+      assert_league_push(recv!(s.client), "Hardcore Ruthless")
 
       send(first, :go)
       refute_frame(s.client, 200)
       send(second, :go)
       assert_rates_error(recv!(s.client), "Hardcore Ruthless")
+    end
+  end
+
+  # --- league.changed push (PROTOCOL "`league.changed` push") ---------------------------------
+
+  describe "league.changed push" do
+    test "DASH-2: a league the backend picks itself is pushed to every connection, subscribed or not",
+         ctx do
+      s = scripted(ctx, %{})
+      request(s.client, "rates.subscribe", "c-2")
+      assert %{"type" => "rates.update", "id" => "c-2"} = recv!(s.client)
+      {other, _welcome, _health} = handshake!(s.port, s.token)
+
+      PubSub.broadcast(s.pubsub, :league, :league_changed, "Standard")
+
+      assert_league_push(recv!(s.client), "Standard")
+      assert_league_push(recv!(other), "Standard")
+    end
+
+    test "on a real stack: the default chosen on first run reaches a client that is already connected",
+         ctx do
+      s = cold(ctx, routes())
+      assert {:ok, _} = Leagues.list(s.leagues)
+      assert_league_push(recv!(s.client), "Covens")
+    end
+
+    test "DASH-2: client A's league.set gets only the reply; client B gets the push", ctx do
+      s = warm(ctx)
+      {b, _welcome, _health} = handshake!(s.port, s.token)
+
+      request(s.client, "league.set", "c-3", %{"league" => "Standard"})
+      assert %{"type" => "league.changed", "id" => "c-3"} = recv!(s.client)
+      assert_league_push(recv!(b), "Standard")
+
+      refute_frame(s.client, 300)
+      refute_frame(b, 0)
+    end
+
+    test "for a subscribed client, league.changed comes before the new league's rates.update",
+         ctx do
+      s = warm(ctx)
+      {b, _welcome, _health} = handshake!(s.port, s.token)
+      request(b, "rates.subscribe", "c-b")
+      assert %{"type" => "rates.update", "id" => "c-b"} = recv!(b)
+
+      request(s.client, "league.set", "c-3", %{"league" => "Standard"})
+      assert %{"type" => "league.changed", "id" => "c-3"} = recv!(s.client)
+
+      assert_league_push(recv!(b), "Standard")
+
+      assert %{"type" => "rates.update", "id" => nil, "payload" => %{"league" => "Standard"}} =
+               recv!(b)
+    end
+
+    test "a league the client already knows (from welcome) isn't pushed again", ctx do
+      s = scripted(ctx, %{})
+      PubSub.broadcast(s.pubsub, :league, :league_changed, "Covens")
+      refute_frame(s.client, 200)
+    end
+
+    test "still pushed after rates.unsubscribe", ctx do
+      s = scripted(ctx, %{})
+      request(s.client, "rates.subscribe", "c-2")
+      assert %{"type" => "rates.update"} = recv!(s.client)
+      request(s.client, "rates.unsubscribe", "c-3")
+      assert %{"type" => "rates.unsubscribed"} = recv!(s.client)
+
+      PubSub.broadcast(s.pubsub, :league, :league_changed, "Standard")
+      assert_league_push(recv!(s.client), "Standard")
+      refute_frame(s.client, 200)
+    end
+
+    test "the subscription is removed when the socket closes", ctx do
+      s = scripted(ctx, %{})
+      assert [{socket_pid, _}] = Registry.lookup(s.pubsub, :league)
+      ref = Process.monitor(socket_pid)
+      WSClient.close(s.client)
+      assert_receive {:DOWN, ^ref, :process, ^socket_pid, _}, 2_000
+      assert eventually(fn -> Registry.lookup(s.pubsub, :league) == [] end)
     end
   end
 
@@ -621,7 +731,9 @@ defmodule Quicksilver.Gateway.DashboardTest do
       refute Enum.any?(types, &match?({_, "c-slow"}, &1))
 
       send(fetcher, :open)
-      assert %{"type" => "leagues.result", "id" => "c-slow"} = recv!(s.client)
+      msgs = recv_n!(s.client, 2)
+      find!(msgs, "leagues.result", "c-slow")
+      assert_league_push(find!(msgs, "league.changed", nil), "Covens")
     end
 
     test "a slow rates.subscribe doesn't block leagues.list", ctx do

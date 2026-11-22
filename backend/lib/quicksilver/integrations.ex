@@ -18,6 +18,10 @@ defmodule Quicksilver.Integrations do
       # rates = %{league:, source: "poe_ninja", fetched_at: DateTime, stale:,
       #           divine_chaos:, rates: [%{id:, name:, chaos:, divine:, change_7d:, volume_chaos:}]}
 
+  On a cold start `rates/1` waits (up to `:timeout`, default 15 s) for a
+  league to be chosen and its rates fetched; `:no_league` means the timeout
+  passed with no league at all. `current_league/0` never blocks.
+
   The map has exactly the `rates.update` payload fields; only `fetched_at` is a
   `DateTime` (format it with `Quicksilver.Time.iso8601_ms/1`).
 

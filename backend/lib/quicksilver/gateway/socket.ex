@@ -15,8 +15,8 @@ defmodule Quicksilver.Gateway.Socket do
        open) and routed through `Quicksilver.Gateway.Routes`. Unknown types get
        `unknown_type` and the connection stays open.
 
-  Handshake failures close with WebSocket status 1008 (policy violation).
-  PROTOCOL.md does not specify a close code; clients act on the `error` code.
+  Handshake failures send the `error`, then close with WebSocket status 1008
+  (policy violation), as PROTOCOL.md "Handshake rules in detail" requires.
 
   Each connection is its own process under Bandit's connection supervisor, so a
   crash here only drops this one client. Handler exceptions are caught and
@@ -34,6 +34,7 @@ defmodule Quicksilver.Gateway.Socket do
   require Logger
 
   alias Quicksilver.Gateway.{Connection, Envelope, Handshake, Routes}
+  alias Quicksilver.Gateway.Handlers.Dashboard
   alias Quicksilver.{Health, Settings}
 
   @policy_violation 1008
@@ -148,7 +149,12 @@ defmodule Quicksilver.Gateway.Socket do
         conn = %{conn | phase: :ready, hello_timer: nil, client_version: client_version}
         Logger.info("gateway: client #{client_version} connected")
 
-        welcome = {:text, Envelope.encode("welcome", id, welcome_payload(conn))}
+        # Subscribe to league broadcasts before reading the active league, so a
+        # change in between is pushed (after the welcome) rather than lost.
+        conn = Dashboard.join(conn)
+        payload = welcome_payload(conn)
+        conn = Dashboard.welcomed(conn, payload.league)
+        welcome = {:text, Envelope.encode("welcome", id, payload)}
         conn = schedule_health(conn)
         {:push, Enum.reject([welcome, health_frame(conn)], &is_nil/1), conn}
 
@@ -268,6 +274,18 @@ defmodule Quicksilver.Gateway.Socket do
       {:async, type, fun, %Connection{} = conn} when is_function(fun, 0) ->
         start_task(handler, type, nil, fun, conn)
 
+      # Pushes to send now, then such a job.
+      {:async, type, fun, pushes, %Connection{} = conn} when is_function(fun, 0) ->
+        frames = Enum.map(pushes, &encode_frame(&1, nil))
+
+        case start_task(handler, type, nil, fun, conn) do
+          {:ok, conn} -> push_frames(frames, conn)
+          {:push, more, conn} -> {:push, frames ++ more, conn}
+        end
+
+      {:frames, pushes, %Connection{} = conn} when is_list(pushes) ->
+        push_frames(Enum.map(pushes, &encode_frame(&1, nil)), conn)
+
       {:push, [], %Connection{} = conn} ->
         {:ok, conn}
 
@@ -286,6 +304,9 @@ defmodule Quicksilver.Gateway.Socket do
 
       {:ok, conn}
   end
+
+  defp push_frames([], conn), do: {:ok, conn}
+  defp push_frames(frames, conn), do: {:push, frames, conn}
 
   defp send_result(handler, result, id) do
     case result do

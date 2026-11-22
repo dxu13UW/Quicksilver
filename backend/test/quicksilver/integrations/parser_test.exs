@@ -1,4 +1,5 @@
 defmodule Quicksilver.Integrations.ParserTest do
+  # DASH-1 (currency rates in chaos and divine), NFR-MNT-1 (recorded responses).
   # Shapes from recorded responses (DATA_SOURCES.md "Endpoints").
   use ExUnit.Case, async: true
 
@@ -45,6 +46,32 @@ defmodule Quicksilver.Integrations.ParserTest do
     b = %{b | "lines" => Enum.reject(b["lines"], &(&1["id"] == "divine"))}
     assert {:ok, %{divine_chaos: dc}} = Parser.exchange_rates(b)
     assert_in_delta dc, 1 / 0.004626, 1.0e-6
+  end
+
+  # TP-RATES-013
+  test "change_7d and volume_chaos are nil when the line has no sparkline or volume" do
+    b = body("ninja_exchange_currency_covens")
+
+    strip = fn
+      %{"id" => "chaos"} = l -> Map.drop(l, ["sparkline", "volumePrimaryValue"])
+      %{"id" => "mirror"} = l -> %{l | "sparkline" => nil, "volumePrimaryValue" => nil}
+      %{"id" => "mirror-shard"} = l -> put_in(l, ["sparkline", "totalChange"], nil)
+      l -> l
+    end
+
+    assert {:ok, %{rows: rows}} =
+             Parser.exchange_rates(%{b | "lines" => Enum.map(b["lines"], strip)})
+
+    row = fn id -> Enum.find(rows, &(&1.id == id)) end
+
+    assert %{chaos: 1.0, change_7d: nil, volume_chaos: nil} = row.("chaos")
+    assert %{chaos: 95_564.0, change_7d: nil, volume_chaos: nil} = row.("mirror")
+    assert %{change_7d: nil, volume_chaos: v} = row.("mirror-shard")
+    assert is_float(v)
+    # Untouched rows keep their values.
+    assert %{change_7d: 245.4, volume_chaos: 12_321_486.0} = row.("divine")
+    # A null row is still JSON-encodable for rates.update.
+    assert Jason.encode!(row.("chaos")) =~ ~s("change_7d":null)
   end
 
   test "empty lines mean an unsupported type, not 'no prices'" do

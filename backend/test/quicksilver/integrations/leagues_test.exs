@@ -88,9 +88,12 @@ defmodule Quicksilver.Integrations.LeaguesTest do
   test "a saved league that ended falls back to the default without overwriting it", ctx do
     b = base(ctx)
     :ok = Quicksilver.Settings.put(b.settings, "league", "Settlers")
+    PubSub.subscribe(b.pubsub, :league)
     start_leagues(b)
+    assert Leagues.current(b.leagues) == "Settlers"
     assert {:ok, _} = Leagues.list(b.leagues)
     assert Leagues.current(b.leagues) == "Covens"
+    assert_receive {Quicksilver.Integrations, :league_changed, "Covens"}
     assert Quicksilver.Settings.get(b.settings, "league", nil) == "Settlers"
   end
 

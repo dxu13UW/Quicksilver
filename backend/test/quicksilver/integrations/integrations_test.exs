@@ -1,4 +1,6 @@
 defmodule Quicksilver.IntegrationsTest do
+  # NFR-MNT-1 (the app's integrations never reach the network in tests),
+  # NFR-API-2 (single client path), DASH-1/DASH-2 (API the Dashboard routes use).
   # The application's own integrations subtree in the test env: up, offline,
   # idle, and its public API usable by the gateway (Phase C).
   # Uses the application's named processes, so not async.

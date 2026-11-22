@@ -83,6 +83,32 @@ defmodule Quicksilver.Gateway.SocketTest do
       assert recv_json!(client)["payload"]["code"] == "protocol_mismatch"
     end
 
+    # TP-HS-013: check order step 1, with a second fault in the payload.
+    test "protocol_mismatch wins over a bad client_version", ctx do
+      client = connect!(ctx.port)
+
+      WSClient.send_json(
+        client,
+        hello(ctx.token, %{"protocol_version" => 7, "client_version" => 5})
+      )
+
+      msg = recv_json!(client)
+      assert msg["payload"]["code"] == "protocol_mismatch"
+      assert msg["payload"]["expected"] == 1
+      assert assert_closed!(client) == 1008
+    end
+
+    # TP-HS-014: check order step 2.
+    test "bad_request wins over unauthorized: a bad field plus a wrong token", ctx do
+      client = connect!(ctx.port)
+      WSClient.send_json(client, hello("not-the-token", %{"client_version" => 5}))
+
+      msg = recv_json!(client)
+      assert msg["id"] == "c-1"
+      assert msg["payload"]["code"] == "bad_request"
+      assert assert_closed!(client) == 1008
+    end
+
     test "hello with a non-integer protocol_version gets bad_request, then close", ctx do
       client = connect!(ctx.port)
       WSClient.send_json(client, hello(ctx.token, %{"protocol_version" => "1"}))
@@ -104,6 +130,39 @@ defmodule Quicksilver.Gateway.SocketTest do
     test "invalid JSON before hello gets unauthorized, then close", ctx do
       client = connect!(ctx.port)
       WSClient.send_text(client, "{nope")
+
+      msg = recv_json!(client)
+      assert msg["id"] == nil
+      assert msg["payload"]["code"] == "unauthorized"
+      assert assert_closed!(client) == 1008
+    end
+
+    # TP-ENV-011
+    test "a binary frame before hello gets unauthorized, then close 1008", ctx do
+      client = connect!(ctx.port)
+      WSClient.send_binary(client, <<1, 2, 3>>)
+
+      msg = recv_json!(client)
+      assert msg["id"] == nil
+      assert msg["payload"]["code"] == "unauthorized"
+      assert assert_closed!(client) == 1008
+    end
+
+    # PROTOCOL: a hello frame that isn't a valid envelope is "anything before
+    # hello" (unauthorized), not bad_request.
+    test "a hello without a payload object gets unauthorized, then close", ctx do
+      client = connect!(ctx.port)
+      WSClient.send_json(client, %{"type" => "hello", "id" => "c-1", "payload" => "x"})
+
+      msg = recv_json!(client)
+      assert msg["payload"]["code"] == "unauthorized"
+      assert assert_closed!(client) == 1008
+    end
+
+    test "a hello with an id that is neither a string nor null gets unauthorized, then close",
+         ctx do
+      client = connect!(ctx.port)
+      WSClient.send_json(client, Map.put(hello(ctx.token), "id", 1))
 
       msg = recv_json!(client)
       assert msg["id"] == nil

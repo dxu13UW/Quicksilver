@@ -101,7 +101,13 @@ defmodule Quicksilver.Integrations.PoeNinja do
   15 000 ms). If nothing is cached for the current league yet, waits for the
   fetch in flight (or starts one, unless a failed attempt is backing off).
 
-  Errors: `:no_league` (no league known yet), `:league_not_covered` (poe.ninja
+  **Cold start:** if no league has been chosen yet, the call first waits for
+  `Leagues` to choose one (saved setting, list default, or the `Standard`
+  fallback; it also nudges `Leagues` to fetch), then for that league's rates,
+  all within `:timeout`.
+
+  Errors: `:no_league` (the timeout passed and still no league was chosen),
+  `:league_not_covered` (poe.ninja
   has no data for it), `:unavailable` (no usable cache and the fetch failed or
   timed out).
   """
@@ -114,7 +120,12 @@ defmodule Quicksilver.Integrations.PoeNinja do
       Keyword.get(opts, :timeout, 15_000)
     )
   catch
-    :exit, {:timeout, _} -> {:error, :unavailable}
+    # The late reply (if any) is dropped by the call's alias. Tell apart "still
+    # no league" from "league known but no data in time".
+    :exit, {:timeout, _} ->
+      if GenServer.call(server, :league) == nil,
+        do: {:error, :no_league},
+        else: {:error, :unavailable}
   end
 
   @doc """
@@ -154,7 +165,11 @@ defmodule Quicksilver.Integrations.PoeNinja do
       types: Keyword.get_lazy(opts, :types, fn -> Config.get(:poe_ninja_types) end),
       # Durations in seconds, as given; converted where used.
       cfg: Map.new(Keyword.take(opts, Keyword.keys(@defaults))),
+      leagues: Keyword.get(opts, :leagues, Leagues),
+      # Subscribed to :league above, so no change can slip between these two.
       league: Leagues.current(Keyword.get(opts, :leagues, Leagues)),
+      # rates/2 callers waiting for the first league (cold start).
+      league_waiters: [],
       entries: %{},
       failures: %{},
       index: nil,
@@ -172,35 +187,19 @@ defmodule Quicksilver.Integrations.PoeNinja do
   end
 
   @impl true
-  def handle_call({:rates, league}, from, state) do
-    league = league || state.league
-
-    case lookup_rates(state, league) do
-      {:ok, _} = ok ->
-        {:reply, ok, state}
-
-      {:error, :no_league} = err ->
-        {:reply, err, state}
-
-      error ->
-        cond do
-          league != state.league ->
-            {:reply, error, state}
-
-          # A cycle is running (possibly for the previous league): wait for it;
-          # finish_cycle/2 starts the next one for the current league.
-          state.cycle != nil ->
-            {:noreply, %{state | waiters: [{from, league} | state.waiters]}}
-
-          plan(state, league) != nil ->
-            state = start_cycle(state, league)
-            {:noreply, %{state | waiters: [{from, league} | state.waiters]}}
-
-          true ->
-            {:reply, error, state}
-        end
-    end
+  # Cold start: no league chosen yet. Wait for Leagues to pick one (saved
+  # setting, list default or Standard fallback; it broadcasts :league_changed),
+  # and nudge it to fetch the list in case nothing else has. The caller's
+  # timeout bounds the wait (PROTOCOL rates.subscribe).
+  def handle_call({:rates, nil}, from, %{league: nil} = state) do
+    Leagues.refresh(state.leagues)
+    {:noreply, %{state | league_waiters: [from | state.league_waiters]}}
   end
+
+  def handle_call({:rates, league}, from, state),
+    do: {:noreply, serve_rates(state, from, league || state.league)}
+
+  def handle_call(:league, _from, state), do: {:reply, state.league, state}
 
   def handle_call({:items, type, league}, _from, state) do
     league = league || state.league
@@ -244,6 +243,10 @@ defmodule Quicksilver.Integrations.PoeNinja do
   def handle_info({Quicksilver.Integrations, :league_changed, league}, state) do
     state = %{state | league: league}
 
+    # Callers that waited for the first league now wait for its rates.
+    {pending, state} = {Enum.reverse(state.league_waiters), %{state | league_waiters: []}}
+    state = Enum.reduce(pending, state, &serve_rates(&2, &1, league))
+
     case lookup_rates(state, league) do
       {:ok, rates} -> PubSub.broadcast(state.pubsub, :rates, :rates, rates)
       _ -> :ok
@@ -268,6 +271,36 @@ defmodule Quicksilver.Integrations.PoeNinja do
   end
 
   def handle_info(_msg, state), do: {:noreply, state}
+
+  # Replies at once from cache, or queues `from` behind the cycle that will
+  # fetch `league`. Returns the new state.
+  defp serve_rates(state, from, league) do
+    case lookup_rates(state, league) do
+      {:ok, _} = ok ->
+        GenServer.reply(from, ok)
+        state
+
+      error ->
+        cond do
+          league == nil or league != state.league ->
+            GenServer.reply(from, error)
+            state
+
+          # A cycle is running (possibly for the previous league): wait for it;
+          # finish_cycle/2 starts the next one for the current league.
+          state.cycle != nil ->
+            %{state | waiters: [{from, league} | state.waiters]}
+
+          plan(state, league) != nil ->
+            state = start_cycle(state, league)
+            %{state | waiters: [{from, league} | state.waiters]}
+
+          true ->
+            GenServer.reply(from, error)
+            state
+        end
+    end
+  end
 
   # --- Planning ---------------------------------------------------------------
 

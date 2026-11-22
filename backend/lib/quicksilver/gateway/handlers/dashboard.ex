@@ -22,10 +22,15 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
       at once (so no refresh is missed), then (task) read the rates →
       `rates.update` echoing the id, or error `upstream_unavailable`; the
       subscription stays active either way.
-    * `rates.unsubscribe` → unsubscribe both → `rates.unsubscribed {}`. Idempotent.
+    * `rates.unsubscribe` → unsubscribe from rates → `rates.unsubscribed {}`.
+      Idempotent.
     * rates broadcast → `rates.update` push (id `null`) while subscribed.
-    * league broadcast (after any `league.set`, or a league the backend picked
-      itself) while subscribed → (task) read the rates for the now-current
+    * league broadcast (every connection gets these: `join/1` subscribes at
+      the handshake) → `league.changed` push (id `null`) unless this client
+      already knows that league: the one in its `welcome`, its own `league.set`
+      reply, or an earlier push (PROTOCOL "`league.changed` push"). So a
+      client's own `league.set` gets only the reply; other clients get the push.
+    * league broadcast while subscribed to rates → (task) read the rates for the now-current
       league. If there are none (`:league_not_covered`, `:unavailable`,
       `:no_league`), push the **rates error**: `error` with id `null` and payload
       `{code: "upstream_unavailable", message, topic: "rates", league}`. If
@@ -38,12 +43,19 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
 
   PROTOCOL promises the `rates.update` reply to `rates.subscribe` comes before
   any push, and that whatever follows `league.set` (a `rates.update` or the
-  rates error) comes after `league.changed`. A broadcast or league check can
+  rates error) comes after `league.changed`. A `league.changed` push goes out
+  as soon as the league broadcast arrives, and the rates check only starts
+  then, so it always precedes the rates push for that league. A broadcast or league check can
   finish before the request's own task does, so while a `rates.subscribe` or
   `league.set` is in flight, rates pushes are held (only the newest is kept: it
   supersedes older ones) and sent right after the reply. A held push is dropped
   if it is a `rates.update` identical to the `rates.subscribe` reply, or if it
   is for another league than the one `league.set` just selected.
+
+  While a `league.set` is in flight, `league.changed` pushes are held too (the
+  newest only), so this client's own change, whose broadcast can beat the
+  task's answer, isn't pushed in addition to the reply. After the reply the
+  held push is sent only if it names a league other than the one just set.
 
   ## Error mapping (PROTOCOL "error")
 
@@ -62,8 +74,13 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
     * `:rates_held`: the newest rates push held back while that number is > 0:
       `{:update, rates}` or `{:error, league, message}`.
     * `:rates_league`: the league of the newest league broadcast seen.
-    * `:rates_error_league`: the league of the last rates error pushed, cleared
-      by the next `rates.update` (duplicate suppression).
+    * `:rates_error_league`: the league of the last rates error sent (as a
+      push, or as the `rates.subscribe` error reply), cleared by the next
+      `rates.update` (duplicate suppression).
+    * `:league_known`: the league this client was last told about.
+    * `:league_set_in_flight`: number of `league.set` jobs running.
+    * `:league_held`: the newest league broadcast held back while that number
+      is > 0.
   """
 
   @behaviour Quicksilver.Gateway.Handler
@@ -74,6 +91,37 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
 
   @row_fields [:id, :name, :chaos, :divine, :change_7d, :volume_chaos]
   @league_check "rates.league_check"
+
+  # --- Connection ------------------------------------------------------------------
+
+  @doc """
+  Called by the socket on a valid `hello`, before it reads the active league
+  for `welcome`: subscribes the connection to league broadcasts, so a change
+  between that read and the welcome is still pushed (after the welcome). If
+  the subscription fails (PubSub restarting), the connection works without
+  `league.changed` pushes; that is logged.
+  """
+  @spec join(Connection.t()) :: Connection.t()
+  def join(conn) do
+    {source, arg} = conn.opts.data_source
+    :ok = source.subscribe(arg, :league)
+    conn
+  rescue
+    exception ->
+      Logger.warning(
+        "gateway: no league pushes for this connection: " <> Exception.message(exception)
+      )
+
+      conn
+  catch
+    :exit, reason ->
+      Logger.warning("gateway: no league pushes for this connection: #{inspect(reason)}")
+      conn
+  end
+
+  @doc "Records the league sent in `welcome` (`nil` if none) as known to the client."
+  @spec welcomed(Connection.t(), String.t() | nil) :: Connection.t()
+  def welcomed(conn, league), do: put(conn, :league_known, league)
 
   # --- Requests -------------------------------------------------------------------
 
@@ -108,6 +156,7 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
       end
     end
 
+    conn = put(conn, :league_set_in_flight, get(conn, :league_set_in_flight, 0) + 1)
     {:async, job, hold(conn)}
   end
 
@@ -121,16 +170,23 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
     # Subscribe before reading, so a refresh between the read and the reply
     # can't be missed (it is held and sent after the reply).
     :ok = source.subscribe(arg, :rates)
-    :ok = source.subscribe(arg, :league)
     conn = conn |> put(:rates_subscribed, true) |> hold()
 
-    {:async, fn -> source.rates(arg, timeout: timeout) end, conn}
+    # The league read after the answer is the one an error is about: it lets a
+    # rates error push for that same league be suppressed (it would repeat
+    # this reply).
+    job = fn ->
+      result = source.rates(arg, timeout: timeout)
+      {result, source.current_league(arg)}
+    end
+
+    {:async, job, conn}
   end
 
   def handle_message("rates.unsubscribe", _payload, conn) do
     {source, arg} = conn.opts.data_source
+    # League broadcasts stay: every connection gets league.changed pushes.
     :ok = source.unsubscribe(arg, :rates)
-    :ok = source.unsubscribe(arg, :league)
 
     conn =
       conn
@@ -156,10 +212,12 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
 
   def handle_async("league.set", outcome, conn) do
     conn = release(conn)
+    conn = put(conn, :league_set_in_flight, max(get(conn, :league_set_in_flight, 0) - 1, 0))
 
     case outcome do
       {:ok, {:ok, league}} ->
         conn = drop_held_unless(conn, &(held_league(&1) == league))
+        conn = put(conn, :league_known, league)
         flush({:reply, "league.changed", %{league: league}}, conn)
 
       {:ok, {:failed, league, error}} ->
@@ -176,10 +234,17 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
     conn = release(conn)
 
     case outcome do
-      {:ok, {:ok, rates}} ->
+      {:ok, {{:ok, rates}, _league}} ->
         conn = drop_held_unless(conn, &(&1 != {:update, rates}))
         conn = put(conn, :rates_error_league, nil)
         flush({:reply, "rates.update", rates_payload(rates)}, conn)
+
+      {:ok, {{:error, _} = error, league}} ->
+        # This reply already tells the client there are no rates for `league`.
+        conn = drop_held_unless(conn, &(not match?({:error, ^league, _}, &1)))
+        conn = if league, do: put(conn, :rates_error_league, league), else: conn
+        {code, message} = failure("rates.subscribe", {:ok, error}, nil)
+        flush({:error, code, message}, conn)
 
       outcome ->
         {code, message} = failure("rates.subscribe", outcome, nil)
@@ -218,15 +283,18 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
   end
 
   def handle_info({Quicksilver.Integrations, :league_changed, league}, conn) do
+    {pushes, conn} = emit_league(league, conn)
+
     if get(conn, :rates_subscribed, false) do
       {source, arg} = conn.opts.data_source
       timeout = conn.opts.upstream_timeout_ms
       # rates/2 for the current league: it waits for the new league's first
-      # fetch if nothing is cached, and starts one if needed.
+      # fetch if nothing is cached, and starts one if needed. Started after the
+      # league.changed push, so its error can only come later.
       job = fn -> {league, source.rates(arg, timeout: timeout)} end
-      {:async, @league_check, job, put(conn, :rates_league, league)}
+      {:async, @league_check, job, pushes, put(conn, :rates_league, league)}
     else
-      {:ok, conn}
+      {:frames, pushes, conn}
     end
   end
 
@@ -274,6 +342,20 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
     {:internal, "Something went wrong in the backend."}
   end
 
+  # --- League pushes ----------------------------------------------------------------------
+
+  defp emit_league(league, conn) do
+    if get(conn, :league_set_in_flight, 0) > 0,
+      do: {[], put(conn, :league_held, league)},
+      else: send_league(league, conn)
+  end
+
+  defp send_league(league, conn) do
+    if get(conn, :league_known, nil) == league,
+      do: {[], conn},
+      else: {[{:push, "league.changed", %{league: league}}], put(conn, :league_known, league)}
+  end
+
   # --- Rates pushes: hold, flush, de-duplicate ------------------------------------------
 
   # Sends a rates push now, holds it while a request it must follow is in
@@ -313,20 +395,29 @@ defmodule Quicksilver.Gateway.Handlers.Dashboard do
     end
   end
 
-  # The reply, then the held push once nothing that must precede it is in
-  # flight any more.
+  # The reply, then the held pushes once nothing that must precede them is in
+  # flight any more: the league push first, then the rates push.
   defp flush(reply, conn) do
+    {league_pushes, conn} = flush_league(conn)
+    {rates_pushes, conn} = flush_rates(conn)
+    {:frames, [reply | league_pushes ++ rates_pushes], conn}
+  end
+
+  defp flush_league(conn) do
+    held = get(conn, :league_held, nil)
+
+    if held != nil and get(conn, :league_set_in_flight, 0) == 0,
+      do: send_league(held, put(conn, :league_held, nil)),
+      else: {[], conn}
+  end
+
+  defp flush_rates(conn) do
     held = get(conn, :rates_held, nil)
 
-    if held != nil and get(conn, :rates_in_flight, 0) == 0 do
-      conn = put(conn, :rates_held, nil)
-
-      {pushes, conn} =
-        if get(conn, :rates_subscribed, false), do: send_item(held, conn), else: {[], conn}
-
-      {:frames, [reply | pushes], conn}
-    else
-      {:frames, [reply], conn}
+    cond do
+      held == nil or get(conn, :rates_in_flight, 0) > 0 -> {[], conn}
+      get(conn, :rates_subscribed, false) -> send_item(held, put(conn, :rates_held, nil))
+      true -> {[], put(conn, :rates_held, nil)}
     end
   end
 

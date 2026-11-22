@@ -27,6 +27,24 @@ defmodule Quicksilver.Gateway.OriginTest do
     end)
   end
 
+  # TP-HS-017: an empty value counts too.
+  test "an upgrade with an empty Origin value gets 403 and no WebSocket", ctx do
+    capture_log(fn ->
+      assert {403, headers, _body} = raw_upgrade(ctx.port, [{"origin", ""}])
+      refute has_upgrade_headers?(headers)
+    end)
+  end
+
+  # TP-HS-018: the check runs before upgrade validation.
+  test "a plain GET /ws (no upgrade) with Origin gets 403 Forbidden, not 400", ctx do
+    capture_log(fn ->
+      assert {403, "Forbidden"} = plain_get(ctx.port, [{"origin", "http://example.com"}])
+    end)
+
+    # Without Origin the same request is a 400 (not an upgrade).
+    capture_log(fn -> assert {400, _} = plain_get(ctx.port, []) end)
+  end
+
   @tag gateway: [token: nil]
   test "Origin is refused even in dev mode (no token)", ctx do
     capture_log(fn ->
@@ -41,6 +59,29 @@ defmodule Quicksilver.Gateway.OriginTest do
     {_client, welcome, health} = handshake!(ctx.port, ctx.token)
     assert welcome["type"] == "welcome"
     assert health["type"] == "health"
+  end
+
+  # A plain HTTP GET /ws; returns {status, body}.
+  defp plain_get(port, headers) do
+    {:ok, conn} = Mint.HTTP.connect(:http, "127.0.0.1", port, mode: :passive)
+    {:ok, conn, ref} = Mint.HTTP.request(conn, "GET", "/ws", headers, nil)
+    result = recv_response(conn, ref, {nil, ""})
+    Mint.HTTP.close(conn)
+    result
+  end
+
+  defp recv_response(conn, ref, {status, body}) do
+    {:ok, conn, responses} = Mint.HTTP.recv(conn, 0, 2_000)
+
+    {acc, done?} =
+      Enum.reduce(responses, {{status, body}, false}, fn
+        {:status, ^ref, s}, {{_, b}, d} -> {{s, b}, d}
+        {:data, ^ref, data}, {{s, b}, d} -> {{s, b <> data}, d}
+        {:done, ^ref}, {a, _} -> {a, true}
+        _, a -> a
+      end)
+
+    if done?, do: acc, else: recv_response(conn, ref, acc)
   end
 
   # Sends a WebSocket upgrade request with `extra_headers` and returns the
