@@ -1,0 +1,3 @@
+// Windows resources for Quicksilver.exe: the icon Explorer, the taskbar and
+// Alt+Tab show. Regenerate icons/quicksilver.ico with icons/make_icons.ps1.
+IDI_ICON1 ICON "icons/quicksilver.ico"

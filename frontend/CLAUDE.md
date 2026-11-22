@@ -35,3 +35,7 @@ Owned by the **frontend** agent. See the root CLAUDE.md, docs/ARCHITECTURE.md, d
     - `dashboard_format`: number, age and source-name wording (one place, unit-tested).
 - `src/platform/`: the only Windows-specific code. `ProcessJob` is a kill-on-close Job Object. `ChildStdin` is an anonymous-pipe stdin, because erl.exe never reads QProcess's named-pipe stdin. Each has a stub for other OSes.
 - `src/ui/` (`quicksilver_ui` static lib, so widget tests can link it): `CommandCenterWindow` (connection strip on top; tabs "Dashboard" and "Backend log"), `LeagueSelector` (sends only on the combo's user-only `activated()`, fills under `QSignalBlocker`), `RatesPanel` (heading, meta line with age, STALE / OFFLINE chips, name filter, table or message page), `HealthPanel` + `StatusBadgeDelegate`.
+
+## App icon
+- Source: `resources/icons/quicksilver.svg`. Run `powershell -NoProfile -File resources/icons/make_icons.ps1` after changing it; that regenerates `quicksilver_<size>.png` and `quicksilver.ico` with headless Edge or Chrome, since Qt SVG can't render its filters. Commit the outputs.
+- `resources/quicksilver.rc` sets the exe icon (Explorer); `resources/resources.qrc` holds the PNGs that `main.cpp` sets as the window icon.

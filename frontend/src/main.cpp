@@ -6,6 +6,7 @@
 #include "ui/command_center_window.h"
 
 #include <QApplication>
+#include <QIcon>
 #include <QLoggingCategory>
 #include <QProcessEnvironment>
 
@@ -14,6 +15,13 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("Quicksilver"));
     QApplication::setApplicationVersion(QStringLiteral(QS_CLIENT_VERSION));
+
+    // Window and taskbar icon (title bar, Alt+Tab, dialogs). The exe's own icon
+    // in Explorer comes from resources/quicksilver.rc.
+    QIcon appIcon;
+    for (int size : {16, 24, 32, 48, 64, 128, 256})
+        appIcon.addFile(QStringLiteral(":/icons/quicksilver_%1.png").arg(size), QSize(size, size));
+    QApplication::setWindowIcon(appIcon);
 
     qs::applog::installClientLog();
     qs::applog::rotateBackendLog();

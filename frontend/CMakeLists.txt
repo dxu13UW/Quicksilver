@@ -75,7 +75,13 @@ target_link_libraries(quicksilver_ui PUBLIC quicksilver_core Qt6::Widgets)
 # --- The app ---
 qt_add_executable(Quicksilver WIN32
   src/main.cpp
+  resources/resources.qrc
 )
+if(WIN32)
+  # Exe icon for Explorer, the taskbar and Alt+Tab (regenerate with
+  # resources/icons/make_icons.ps1). The window icon comes from the .qrc PNGs.
+  target_sources(Quicksilver PRIVATE resources/quicksilver.rc)
+endif()
 target_link_libraries(Quicksilver PRIVATE quicksilver_ui)
 
 # Copy the Qt runtime next to the exe after each build so it runs by double-click.

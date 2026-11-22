@@ -1,0 +1,12 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/icons">
+    <file alias="quicksilver_16.png">icons/quicksilver_16.png</file>
+    <file alias="quicksilver_24.png">icons/quicksilver_24.png</file>
+    <file alias="quicksilver_32.png">icons/quicksilver_32.png</file>
+    <file alias="quicksilver_48.png">icons/quicksilver_48.png</file>
+    <file alias="quicksilver_64.png">icons/quicksilver_64.png</file>
+    <file alias="quicksilver_128.png">icons/quicksilver_128.png</file>
+    <file alias="quicksilver_256.png">icons/quicksilver_256.png</file>
+  </qresource>
+</RCC>
