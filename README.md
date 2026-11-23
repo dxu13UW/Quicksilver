@@ -6,6 +6,10 @@ A companion app for Path of Exile 1: a standalone **command center** window plus
 
 Built solo for Artifact 5 (The Moonshot), with Claude Code subagents acting as the team.
 
+![Quicksilver command center: connection status, league selector, poe.ninja currency rates and data-source health](docs/images/command-center.png)
+
+*The command center at the end of Week 2: it starts and supervises the backend, shows live poe.ninja currency rates for the selected league, and reports the health of each data source.*
+
 ## Planned features (MVP priority order)
 1. **Command center dashboard**: currency rates, league info, recent price checks, backend health.
 2. **Item price check**: hotkey on a hovered item → overlay shows estimated value.
@@ -26,8 +30,8 @@ Built solo for Artifact 5 (The Moonshot), with Claude Code subagents acting as t
 | `LOG.md` | Running log of plans, sessions, and changes |
 | `OPEN_QUESTIONS.md` | Things still undecided |
 | `.claude/agents/` | Subagent definitions (backend, frontend, integrations, QA, scribe) |
-| `backend/` | Elixir service (empty until Week 2) |
-| `frontend/` | C++ / Qt 6 client (empty until Week 2) |
+| `backend/` | Elixir service |
+| `frontend/` | C++ / Qt 6 client |
 | `shared/` | Protocol schemas and sample item texts used by both sides |
 
 ## Notices
